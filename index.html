@@ -136,7 +136,10 @@
           </p>
 
           <form class="answer-form" id="answerForm" novalidate>
-            <label for="answerInput">Cevabın</label>
+            <div class="answer-label-row">
+              <label for="answerInput">Cevabın</label>
+              <span class="voice-status" id="voiceStatus" aria-live="polite"></span>
+            </div>
             <div class="answer-row" id="answerRow">
               <input
                 id="answerInput"
@@ -147,8 +150,18 @@
                 autocapitalize="characters"
                 spellcheck="false"
                 placeholder="Kelimeyi buraya yaz"
-                aria-describedby="feedbackMessage"
+                aria-describedby="voiceStatus feedbackMessage"
               />
+              <button
+                class="voice-button"
+                id="voiceButton"
+                type="button"
+                aria-label="Sesli tahmin yap"
+                aria-pressed="false"
+              >
+                <span class="voice-button__dot" aria-hidden="true"></span>
+                <span>Sesle söyle</span>
+              </button>
               <button class="button button--primary" id="checkButton" type="submit">
                 Kontrol et
                 <span aria-hidden="true">→</span>

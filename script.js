@@ -27,6 +27,9 @@ let userHasInteracted = false;
 let countdown = HINT_SECONDS;
 let roundLocked = false;
 let questionToken = 0;
+let speechRecognition = null;
+let voiceListening = false;
+let voiceQuestionToken = 0;
 
 const elements = {
   loadingPanel: document.querySelector("#loadingPanel"),
@@ -48,6 +51,8 @@ const elements = {
   answerForm: document.querySelector("#answerForm"),
   answerRow: document.querySelector("#answerRow"),
   answerInput: document.querySelector("#answerInput"),
+  voiceButton: document.querySelector("#voiceButton"),
+  voiceStatus: document.querySelector("#voiceStatus"),
   checkButton: document.querySelector("#checkButton"),
   feedbackMessage: document.querySelector("#feedbackMessage"),
   revealedCount: document.querySelector("#revealedCount"),
@@ -158,6 +163,7 @@ function selectQuestions() {
 }
 
 function startNewGame() {
+  stopVoiceRecognition();
   clearAllTimers();
   questionToken += 1;
   totalScore = 0;
@@ -195,6 +201,7 @@ function shuffleWord(word) {
 }
 
 function startQuestion() {
+  stopVoiceRecognition();
   clearAllTimers();
   questionToken += 1;
   roundLocked = false;
@@ -206,6 +213,8 @@ function startQuestion() {
 
   elements.answerInput.disabled = false;
   elements.checkButton.disabled = false;
+  elements.voiceButton.disabled = !speechRecognition;
+  elements.voiceStatus.textContent = "";
   elements.answerInput.value = "";
   elements.feedbackMessage.textContent = "";
   elements.feedbackMessage.className = "feedback";
@@ -380,12 +389,14 @@ function checkAnswer(event) {
 
 function handleCorrectAnswer(word) {
   roundLocked = true;
+  stopVoiceRecognition();
   clearAllTimers();
   const earned = Math.max(0, characterCount(word) * 10 - revealedLetterCount * 10);
   totalScore += earned;
   elements.totalScore.textContent = totalScore;
   elements.answerInput.disabled = true;
   elements.checkButton.disabled = true;
+  elements.voiceButton.disabled = true;
   elements.feedbackMessage.textContent = `Doğru! +${earned} puan`;
   elements.feedbackMessage.className = "feedback feedback--correct";
   playSound("correct");
@@ -411,6 +422,7 @@ function handleCorrectAnswer(word) {
 }
 
 function finishGame() {
+  stopVoiceRecognition();
   clearAllTimers();
   questionToken += 1;
   roundLocked = true;
@@ -554,6 +566,125 @@ function changeVolume(event) {
   updateSoundControls();
 }
 
+function normalizeSpokenWord(value) {
+  return normalizeTurkish(value).replace(/[^A-ZÇĞİÖŞÜ]/gu, "");
+}
+
+function updateVoiceButton() {
+  elements.voiceButton.classList.toggle("is-listening", voiceListening);
+  elements.voiceButton.setAttribute("aria-pressed", String(voiceListening));
+  elements.voiceButton.setAttribute(
+    "aria-label",
+    voiceListening ? "Sesli tahmini durdur" : "Sesli tahmin yap"
+  );
+}
+
+function stopVoiceRecognition() {
+  if (speechRecognition && voiceListening) {
+    try {
+      speechRecognition.abort();
+    } catch (error) {
+      console.debug("Ses tanıma zaten durmuş olabilir.", error);
+    }
+  }
+  voiceListening = false;
+  updateVoiceButton();
+}
+
+function submitSpokenGuess(candidate) {
+  if (!candidate || roundLocked || voiceQuestionToken !== questionToken) return;
+  elements.answerInput.value = candidate;
+  elements.voiceStatus.textContent = `“${candidate}” olarak duydum`;
+  stopVoiceRecognition();
+  elements.answerForm.requestSubmit();
+}
+
+function setupSpeechRecognition() {
+  const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognitionClass) {
+    elements.voiceButton.disabled = true;
+    elements.voiceButton.title = "Bu tarayıcı sesli tahmini desteklemiyor.";
+    elements.voiceStatus.textContent = "Sesli tahmin bu tarayıcıda desteklenmiyor";
+    return;
+  }
+
+  speechRecognition = new SpeechRecognitionClass();
+  speechRecognition.lang = "tr-TR";
+  speechRecognition.continuous = false;
+  speechRecognition.interimResults = true;
+  speechRecognition.maxAlternatives = 5;
+
+  speechRecognition.onstart = () => {
+    voiceListening = true;
+    elements.voiceStatus.textContent = "Dinliyorum…";
+    updateVoiceButton();
+  };
+
+  speechRecognition.onresult = (event) => {
+    if (voiceQuestionToken !== questionToken || roundLocked) return;
+    const result = event.results[event.resultIndex];
+    const alternatives = Array.from({ length: result.length }, (_, index) =>
+      normalizeSpokenWord(result[index].transcript)
+    ).filter(Boolean);
+    if (!alternatives.length) return;
+
+    const correctWord = selectedQuestions[currentQuestionIndex];
+    const exactMatch = alternatives.find((candidate) => candidate === correctWord);
+    const lengthMatch = alternatives.find(
+      (candidate) => characterCount(candidate) === characterCount(correctWord)
+    );
+    const bestCandidate = exactMatch || lengthMatch || alternatives[0];
+
+    elements.answerInput.value = bestCandidate;
+    elements.voiceStatus.textContent = `“${bestCandidate}” olarak duyuluyor…`;
+
+    // Doğru alternatif ara sonuçta bile yakalanırsa final sonucu bekleme.
+    if (exactMatch || result.isFinal) submitSpokenGuess(bestCandidate);
+  };
+
+  speechRecognition.onerror = (event) => {
+    voiceListening = false;
+    updateVoiceButton();
+    if (event.error === "aborted") return;
+    const messages = {
+      "no-speech": "Ses duyulamadı; tekrar dokun",
+      "not-allowed": "Mikrofon izni verilmedi",
+      "audio-capture": "Mikrofona ulaşılamadı",
+      network: "Ses tanıma hizmetine ulaşılamadı"
+    };
+    elements.voiceStatus.textContent = messages[event.error] || "Sesli tahmin tamamlanamadı";
+  };
+
+  speechRecognition.onend = () => {
+    voiceListening = false;
+    updateVoiceButton();
+  };
+}
+
+function toggleVoiceRecognition() {
+  userHasInteracted = true;
+  if (!speechRecognition || roundLocked) return;
+  if (voiceListening) {
+    stopVoiceRecognition();
+    elements.voiceStatus.textContent = "Dinleme durduruldu";
+    return;
+  }
+
+  voiceQuestionToken = questionToken;
+  voiceListening = true;
+  elements.answerInput.value = "";
+  elements.voiceStatus.textContent = "Mikrofon açılıyor…";
+  updateVoiceButton();
+  try {
+    speechRecognition.start();
+  } catch (error) {
+    voiceListening = false;
+    updateVoiceButton();
+    elements.voiceStatus.textContent = "Mikrofon yeniden hazırlanıyor; tekrar dokun";
+    console.debug("Ses tanıma başlatılamadı.", error);
+  }
+}
+
 elements.answerForm.addEventListener("submit", checkAnswer);
 elements.startGameButton.addEventListener("click", () => {
   userHasInteracted = true;
@@ -577,6 +708,7 @@ elements.playAgainButton.addEventListener("click", () => {
   startNewGame();
 });
 elements.soundButton.addEventListener("click", toggleSound);
+elements.voiceButton.addEventListener("click", toggleVoiceRecognition);
 elements.volumeSlider.addEventListener("input", changeVolume);
 elements.volumeSlider.addEventListener("change", () => {
   if (soundEnabled) tone({ frequency: 420, endFrequency: 620, duration: 0.12, gain: 0.04 });
@@ -597,4 +729,5 @@ document.addEventListener(
 );
 
 updateSoundControls();
+setupSpeechRecognition();
 loadWords();
