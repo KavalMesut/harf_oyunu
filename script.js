@@ -30,6 +30,8 @@ let questionToken = 0;
 let speechRecognition = null;
 let voiceListening = false;
 let voiceQuestionToken = 0;
+let voiceModeEnabled = loadVoiceModePreference();
+let voiceRestartTimer = null;
 
 const elements = {
   loadingPanel: document.querySelector("#loadingPanel"),
@@ -52,6 +54,7 @@ const elements = {
   answerRow: document.querySelector("#answerRow"),
   answerInput: document.querySelector("#answerInput"),
   voiceButton: document.querySelector("#voiceButton"),
+  voiceButtonLabel: document.querySelector("#voiceButtonLabel"),
   voiceStatus: document.querySelector("#voiceStatus"),
   checkButton: document.querySelector("#checkButton"),
   feedbackMessage: document.querySelector("#feedbackMessage"),
@@ -223,6 +226,7 @@ function startQuestion() {
   renderLetters(characters);
   updateInterface();
   startHintTimers();
+  scheduleVoiceRecognition(300);
 
   requestAnimationFrame(() => elements.answerInput.focus({ preventScroll: true }));
 }
@@ -570,16 +574,44 @@ function normalizeSpokenWord(value) {
   return normalizeTurkish(value).replace(/[^A-ZÇĞİÖŞÜ]/gu, "");
 }
 
+function loadVoiceModePreference() {
+  try {
+    return window.localStorage.getItem("kelime-voice-mode") === "enabled";
+  } catch (error) {
+    console.debug("Sesli tahmin tercihi okunamadı.", error);
+    return false;
+  }
+}
+
+function saveVoiceModePreference() {
+  try {
+    window.localStorage.setItem(
+      "kelime-voice-mode",
+      voiceModeEnabled ? "enabled" : "disabled"
+    );
+  } catch (error) {
+    console.debug("Sesli tahmin tercihi kaydedilemedi.", error);
+  }
+}
+
 function updateVoiceButton() {
+  elements.voiceButton.classList.toggle("is-enabled", voiceModeEnabled);
   elements.voiceButton.classList.toggle("is-listening", voiceListening);
-  elements.voiceButton.setAttribute("aria-pressed", String(voiceListening));
+  elements.voiceButton.setAttribute("aria-pressed", String(voiceModeEnabled));
   elements.voiceButton.setAttribute(
     "aria-label",
-    voiceListening ? "Sesli tahmini durdur" : "Sesli tahmin yap"
+    voiceModeEnabled ? "Sürekli sesli tahmini kapat" : "Sürekli sesli tahmini aç"
   );
+  elements.voiceButtonLabel.textContent = voiceListening
+    ? "Dinliyor"
+    : voiceModeEnabled
+      ? "Ses açık"
+      : "Sesle söyle";
 }
 
 function stopVoiceRecognition() {
+  if (voiceRestartTimer !== null) window.clearTimeout(voiceRestartTimer);
+  voiceRestartTimer = null;
   if (speechRecognition && voiceListening) {
     try {
       speechRecognition.abort();
@@ -597,6 +629,41 @@ function submitSpokenGuess(candidate) {
   elements.voiceStatus.textContent = `“${candidate}” olarak duydum`;
   stopVoiceRecognition();
   elements.answerForm.requestSubmit();
+  if (voiceModeEnabled && !roundLocked) scheduleVoiceRecognition(450);
+}
+
+function scheduleVoiceRecognition(delay = 400) {
+  if (voiceRestartTimer !== null) window.clearTimeout(voiceRestartTimer);
+  voiceRestartTimer = null;
+  if (
+    !voiceModeEnabled ||
+    !speechRecognition ||
+    roundLocked ||
+    elements.gameLayout.hidden
+  ) return;
+
+  voiceRestartTimer = window.setTimeout(() => {
+    voiceRestartTimer = null;
+    beginVoiceRecognition();
+  }, delay);
+}
+
+function beginVoiceRecognition() {
+  if (!voiceModeEnabled || !speechRecognition || voiceListening || roundLocked) return;
+  voiceQuestionToken = questionToken;
+  voiceListening = true;
+  elements.answerInput.value = "";
+  elements.voiceStatus.textContent = "Mikrofon açılıyor…";
+  updateVoiceButton();
+  try {
+    speechRecognition.start();
+  } catch (error) {
+    voiceListening = false;
+    updateVoiceButton();
+    elements.voiceStatus.textContent = "Mikrofon yeniden hazırlanıyor…";
+    console.debug("Ses tanıma başlatılamadı.", error);
+    scheduleVoiceRecognition(650);
+  }
 }
 
 function setupSpeechRecognition() {
@@ -613,6 +680,7 @@ function setupSpeechRecognition() {
   speechRecognition.continuous = false;
   speechRecognition.interimResults = true;
   speechRecognition.maxAlternatives = 5;
+  updateVoiceButton();
 
   speechRecognition.onstart = () => {
     voiceListening = true;
@@ -647,42 +715,42 @@ function setupSpeechRecognition() {
     updateVoiceButton();
     if (event.error === "aborted") return;
     const messages = {
-      "no-speech": "Ses duyulamadı; tekrar dokun",
+      "no-speech": "Ses duyulamadı; dinlemeye devam ediliyor",
       "not-allowed": "Mikrofon izni verilmedi",
       "audio-capture": "Mikrofona ulaşılamadı",
       network: "Ses tanıma hizmetine ulaşılamadı"
     };
     elements.voiceStatus.textContent = messages[event.error] || "Sesli tahmin tamamlanamadı";
+    if (event.error === "not-allowed" || event.error === "audio-capture") {
+      voiceModeEnabled = false;
+      saveVoiceModePreference();
+      updateVoiceButton();
+    }
   };
 
   speechRecognition.onend = () => {
     voiceListening = false;
     updateVoiceButton();
+    scheduleVoiceRecognition(500);
   };
 }
 
-function toggleVoiceRecognition() {
+function toggleVoiceMode() {
   userHasInteracted = true;
-  if (!speechRecognition || roundLocked) return;
-  if (voiceListening) {
+  if (!speechRecognition) return;
+
+  voiceModeEnabled = !voiceModeEnabled;
+  saveVoiceModePreference();
+  if (!voiceModeEnabled) {
     stopVoiceRecognition();
-    elements.voiceStatus.textContent = "Dinleme durduruldu";
+    elements.voiceStatus.textContent = "Sesli tahmin kapalı";
+    updateVoiceButton();
     return;
   }
 
-  voiceQuestionToken = questionToken;
-  voiceListening = true;
-  elements.answerInput.value = "";
-  elements.voiceStatus.textContent = "Mikrofon açılıyor…";
+  elements.voiceStatus.textContent = "Sesli tahmin açık";
   updateVoiceButton();
-  try {
-    speechRecognition.start();
-  } catch (error) {
-    voiceListening = false;
-    updateVoiceButton();
-    elements.voiceStatus.textContent = "Mikrofon yeniden hazırlanıyor; tekrar dokun";
-    console.debug("Ses tanıma başlatılamadı.", error);
-  }
+  beginVoiceRecognition();
 }
 
 elements.answerForm.addEventListener("submit", checkAnswer);
@@ -708,7 +776,7 @@ elements.playAgainButton.addEventListener("click", () => {
   startNewGame();
 });
 elements.soundButton.addEventListener("click", toggleSound);
-elements.voiceButton.addEventListener("click", toggleVoiceRecognition);
+elements.voiceButton.addEventListener("click", toggleVoiceMode);
 elements.volumeSlider.addEventListener("input", changeVolume);
 elements.volumeSlider.addEventListener("change", () => {
   if (soundEnabled) tone({ frequency: 420, endFrequency: 620, duration: 0.12, gain: 0.04 });

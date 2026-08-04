@@ -696,10 +696,10 @@ button {
   gap: 9px;
   align-items: center;
   justify-content: center;
-  border: 2px solid color-mix(in srgb, var(--gold) 72%, transparent);
+  border: 2px solid color-mix(in srgb, var(--blue) 72%, transparent);
   border-radius: 17px;
-  color: var(--green-deep);
-  background: var(--gold);
+  color: var(--cream);
+  background: var(--blue);
   cursor: pointer;
   font-size: 0.82rem;
   font-weight: 850;
@@ -719,11 +719,24 @@ button {
 .voice-button__dot {
   width: 12px;
   height: 12px;
-  border: 3px solid var(--green-deep);
+  border: 3px solid var(--cream);
   border-radius: 50%;
 }
 
+.voice-button.is-enabled {
+  border-color: color-mix(in srgb, var(--gold) 72%, transparent);
+  color: var(--green-deep);
+  background: var(--gold);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--gold) 18%, transparent);
+}
+
+.voice-button.is-enabled .voice-button__dot {
+  border-color: var(--green-deep);
+  background: var(--green-deep);
+}
+
 .voice-button.is-listening {
+  border-color: color-mix(in srgb, var(--red) 75%, transparent);
   color: var(--cream);
   background: var(--red);
   box-shadow: 0 0 0 5px color-mix(in srgb, var(--red) 18%, transparent);
