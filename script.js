@@ -324,7 +324,26 @@ function revealNextHint() {
   updateInterface();
   playSound("hint");
 
-  if (revealedLetterCount >= answerCharacters.length) clearAllTimers();
+  if (revealedLetterCount >= answerCharacters.length) handleFullyRevealed(word);
+}
+
+function handleFullyRevealed(word) {
+  roundLocked = true;
+  clearAllTimers();
+  stopVoiceRecognition();
+  elements.answerInput.disabled = true;
+  elements.checkButton.disabled = true;
+  elements.voiceButton.disabled = true;
+  elements.feedbackMessage.textContent = `Kelime tamamen açıldı: ${word}. Sıradaki kelimeye geçiliyor…`;
+  elements.feedbackMessage.className = "feedback feedback--revealed";
+
+  const tokenAtReveal = questionToken;
+  window.setTimeout(() => {
+    if (tokenAtReveal !== questionToken) return;
+    currentQuestionIndex += 1;
+    if (currentQuestionIndex >= selectedQuestions.length) finishGame();
+    else startQuestion();
+  }, 1000);
 }
 
 function animateTileMove(targetTile, destinationIndex) {
