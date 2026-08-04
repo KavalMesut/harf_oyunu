@@ -13,6 +13,10 @@ Modern, hızlı ve Türkçe odaklı bir kelime çözme oyunu.
 
 </div>
 
+## Ekran görüntüsü
+
+![SözDiz oyun ekranı](assets/sozdiz-oyun.png)
+
 ## Oyun hakkında
 
 SözDiz, karışık verilen Türkçe harfleri doğru sıraya getirerek kelimeyi bulmaya çalıştığınız 12 soruluk bir tarayıcı oyunudur. Sorular 5 harfli kelimelerle başlar ve aşamalı olarak 10 harfe kadar ilerler.
