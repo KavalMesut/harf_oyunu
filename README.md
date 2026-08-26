@@ -112,7 +112,7 @@ Sesli tanıma desteği ve doğruluğu tarayıcıya göre değişebilir. Klavye g
 
 ## Kelime listesi
 
-`turkce_kelime_listesi.txt` UTF-8 kodlamalı olmalı ve her satırda tek bir kelime bulunmalıdır:
+Oyun, günlük kullanım için süzülmüş `turkce_kelime_listesi_gunluk.txt` dosyasını yükler. Dosya UTF-8 kodlamalı olmalı ve her satırda tek bir kelime bulunmalıdır. Tam TDK madde başlığı arşivi olan `turkce_kelime_listesi.txt` korunur; istenirse daha geniş bir havuz için tekrar kullanılabilir.
 
 ```text
 bağıl
@@ -140,7 +140,8 @@ kelime_bulma/
 ├── index.html                  # Uygulama arayüzü
 ├── style.css                   # Tasarım ve animasyonlar
 ├── script.js                   # Oyun, ses ve sesli tahmin mantığı
-├── turkce_kelime_listesi.txt   # Türkçe kelime havuzu
+├── turkce_kelime_listesi_gunluk.txt # Oyunda kullanılan günlük kelime havuzu
+├── turkce_kelime_listesi.txt   # Tam Türkçe kelime arşivi
 ├── Oyunu_Baslat.bat            # Windows tek tık başlatıcı
 └── README.md
 ```

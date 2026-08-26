@@ -80,7 +80,7 @@ function characterCount(word) {
 
 async function loadWords() {
   try {
-    const response = await fetch("turkce_kelime_listesi.txt", { cache: "no-store" });
+    const response = await fetch("turkce_kelime_listesi_gunluk.txt", { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const rawText = await response.text();
