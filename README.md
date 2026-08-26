@@ -112,7 +112,7 @@ Sesli tanıma desteği ve doğruluğu tarayıcıya göre değişebilir. Klavye g
 
 ## Kelime listesi
 
-Oyun, günlük kullanım için süzülmüş `turkce_kelime_listesi_gunluk.txt` dosyasını yükler. Dosya UTF-8 kodlamalı olmalı ve her satırda tek bir kelime bulunmalıdır. Tam TDK madde başlığı arşivi olan `turkce_kelime_listesi.txt` korunur; istenirse daha geniş bir havuz için tekrar kullanılabilir.
+Oyun, günlük kullanım için süzülmüş `turkce_kelime_listesi_gunluk.txt` dosyasını yükler. Varsayılan havuzda yaygın mastar fiiller bulunur; 8–10 harf gruplarında mastar ve diğer kelimelerin sayısı eşittir, böylece uzun sorular çeşitli kalır. Dosya UTF-8 kodlamalı olmalı ve her satırda tek bir kelime bulunmalıdır. Tam TDK madde başlığı arşivi olan `turkce_kelime_listesi.txt` korunur; istenirse daha geniş bir havuz için tekrar kullanılabilir.
 
 ```text
 bağıl
