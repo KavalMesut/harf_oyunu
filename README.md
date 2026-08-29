@@ -34,6 +34,7 @@ Her beş saniyede bir harf animasyonla doğru konumuna yerleşir. Ne kadar erken
 - Web Audio API ile üretilen, seviyesi ayarlanabilir oyun sesleri
 - Desteklenen tarayıcılarda anlık Türkçe sesli tahmin
 - Açıldığında sorular arasında etkin kalabilen sürekli sesli tahmin modu
+- Başlangıç ve sonuç ekranlarında “yeni oyun başlat” sesli komutuyla oyunu başlatma
 - Tüm harfler açıldığında otomatik olarak sonraki kelimeye geçiş
 - Masaüstü ve mobil ekranlara uyumlu tasarım
 - Harici framework, font, ikon veya ses dosyası olmadan çalışma
@@ -103,8 +104,9 @@ Sesli tahmin, tarayıcının Web Speech API desteğini kullanır.
 
 - Tanıma dili `tr-TR` olarak ayarlanır.
 - Konuşma sırasında ara sonuç cevap kutusunda gösterilir.
-- Kesinleşen tahmin onay beklemeden otomatik olarak denenir.
+- Ara sonuç kutuda gösterilir; kullanıcı sözünü bitirdikten sonra kesinleşen tahmin onay beklemeden otomatik olarak denenir.
 - Sürekli mod bir kez açıldığında yeni sorularda kendiliğinden devam eder.
+- Başlangıç ve sonuç ekranlarında sesli mod açıksa “yeni oyun başlat” veya “oyuna başla” demek oyunu başlatır.
 - Tercih tarayıcıda saklanır ve aynı düğmeyle kapatılabilir.
 - İlk kullanımda tarayıcı mikrofon izni ister.
 

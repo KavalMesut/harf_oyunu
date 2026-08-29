@@ -618,6 +618,15 @@ button {
     0 17px 28px color-mix(in srgb, var(--red) 28%, transparent);
 }
 
+.letter-tile.is-solved {
+  border-color: color-mix(in srgb, var(--green) 82%, var(--cream));
+  color: var(--cream);
+  background: var(--green);
+  box-shadow:
+    0 10px 0 color-mix(in srgb, var(--green) 66%, var(--green-deep)),
+    0 17px 28px color-mix(in srgb, var(--green) 34%, transparent);
+}
+
 .hint-copy {
   min-height: 40px;
   margin: 10px auto 26px;
@@ -654,6 +663,33 @@ button {
   white-space: nowrap;
 }
 
+.start-voice-control {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+
+.start-voice-control .voice-status {
+  min-height: 1.25rem;
+}
+
+.start-voice-control .voice-button {
+  min-width: 142px;
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: 999px;
+}
+
+.start-voice-control .voice-button > span:last-child {
+  display: inline;
+}
+
+.end-voice-control {
+  justify-content: center;
+}
+
 .answer-row {
   display: flex;
   gap: 10px;
@@ -687,6 +723,13 @@ button {
   border-color: var(--gold);
   background: color-mix(in srgb, var(--blue) 70%, var(--green-deep));
   box-shadow: 0 0 0 5px color-mix(in srgb, var(--gold) 24%, transparent);
+}
+
+.answer-row input.is-correct-answer {
+  border-color: color-mix(in srgb, var(--green) 72%, var(--cream));
+  color: var(--cream);
+  background: var(--green);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--green) 20%, transparent);
 }
 
 .voice-button {
@@ -760,7 +803,9 @@ button {
 }
 
 .feedback--correct {
-  color: var(--green);
+  color: color-mix(in srgb, var(--green) 84%, var(--green-deep));
+  font-size: 0.95rem;
+  text-shadow: 0 1px 0 color-mix(in srgb, var(--cream) 36%, transparent);
 }
 
 .feedback--wrong {
@@ -1054,6 +1099,12 @@ kbd {
     box-shadow:
       0 7px 0 color-mix(in srgb, var(--red) 68%, var(--green-deep)),
       0 12px 18px color-mix(in srgb, var(--red) 28%, transparent);
+  }
+
+  .letter-tile.is-solved {
+    box-shadow:
+      0 7px 0 color-mix(in srgb, var(--green) 66%, var(--green-deep)),
+      0 12px 18px color-mix(in srgb, var(--green) 34%, transparent);
   }
 
   .hint-copy {

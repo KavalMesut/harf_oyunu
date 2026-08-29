@@ -4,8 +4,28 @@ const GAME_LENGTHS = [5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10];
 const REQUIRED_LENGTHS = [5, 6, 7, 8, 9, 10];
 const MAX_SCORE = 900;
 const HINT_SECONDS = 5;
+const SOLVED_LETTER_DELAY = 80;
+const SOLVED_WORD_PAUSE = 650;
 const TURKISH_WORD_PATTERN = /^[A-ZÇĞİÖŞÜ]+$/u;
 const VOLUME_BOOST = 5.5;
+const RECORDED_SOUND_SOURCES = {
+  correct: "assets/correct.mp3",
+  hint: "assets/hint.mp3",
+  start: "assets/start.mp3",
+  wrong: "assets/wrong.mp3"
+};
+const RECORDED_SOUND_LEVELS = {
+  correct: 0.45,
+  hint: 1.875,
+  start: 1,
+  wrong: 0.9
+};
+const RECORDED_SOUND_BOOSTS = {
+  correct: 1,
+  hint: 1.5,
+  start: 2,
+  wrong: 1
+};
 
 // Açık oyun durumu: her yeni oyunda tek bir kaynaktan sıfırlanır.
 let wordPool = new Map();
@@ -20,6 +40,8 @@ let previousGameWords = new Set();
 let audioContext = null;
 let masterGainNode = null;
 let compressorNode = null;
+const recordedSounds = new Map();
+const recordedSoundGainNodes = new Map();
 let soundEnabled = true;
 let volumeLevel = 50;
 let lastAudibleVolume = 50;
@@ -32,11 +54,15 @@ let voiceListening = false;
 let voiceQuestionToken = 0;
 let voiceModeEnabled = loadVoiceModePreference();
 let voiceRestartTimer = null;
+let voiceListeningContext = null;
 
 const elements = {
   loadingPanel: document.querySelector("#loadingPanel"),
   startPanel: document.querySelector("#startPanel"),
   startGameButton: document.querySelector("#startGameButton"),
+  startVoiceButton: document.querySelector("#startVoiceButton"),
+  startVoiceButtonLabel: document.querySelector("#startVoiceButtonLabel"),
+  startVoiceStatus: document.querySelector("#startVoiceStatus"),
   errorPanel: document.querySelector("#errorPanel"),
   errorMessage: document.querySelector("#errorMessage"),
   gameLayout: document.querySelector("#gameLayout"),
@@ -61,6 +87,9 @@ const elements = {
   revealedCount: document.querySelector("#revealedCount"),
   newGameButton: document.querySelector("#newGameButton"),
   playAgainButton: document.querySelector("#playAgainButton"),
+  endVoiceButton: document.querySelector("#endVoiceButton"),
+  endVoiceButtonLabel: document.querySelector("#endVoiceButtonLabel"),
+  endVoiceStatus: document.querySelector("#endVoiceStatus"),
   finalScore: document.querySelector("#finalScore"),
   successRate: document.querySelector("#successRate"),
   resultMeterFill: document.querySelector("#resultMeterFill"),
@@ -119,6 +148,11 @@ function showStartScreen() {
   elements.endPanel.hidden = true;
   elements.errorPanel.hidden = true;
   elements.startPanel.hidden = false;
+  updateVoiceButton();
+  if (voiceModeEnabled && speechRecognition) {
+    setVoiceStatus("“Yeni oyun başlat” diyebilirsin");
+    scheduleVoiceRecognition(250);
+  }
   requestAnimationFrame(() => elements.startGameButton.focus({ preventScroll: true }));
 }
 
@@ -181,6 +215,7 @@ function startNewGame() {
 
   selectedQuestions = selectQuestions();
   previousGameWords = new Set(selectedQuestions);
+  playSound("start");
   startQuestion();
 }
 
@@ -219,6 +254,7 @@ function startQuestion() {
   elements.voiceButton.disabled = !speechRecognition;
   elements.voiceStatus.textContent = "";
   elements.answerInput.value = "";
+  elements.answerInput.classList.remove("is-correct-answer");
   elements.feedbackMessage.textContent = "";
   elements.feedbackMessage.className = "feedback";
   elements.answerRow.classList.remove("is-wrong");
@@ -420,28 +456,51 @@ function handleCorrectAnswer(word) {
   elements.answerInput.disabled = true;
   elements.checkButton.disabled = true;
   elements.voiceButton.disabled = true;
-  elements.feedbackMessage.textContent = `Doğru! +${earned} puan`;
+  elements.answerInput.value = word;
+  elements.answerInput.classList.add("is-correct-answer");
+  elements.feedbackMessage.textContent = `Doğru! +${earned} puan · ${word}`;
   elements.feedbackMessage.className = "feedback feedback--correct";
   playSound("correct");
 
-  [...elements.letters.children].forEach((tile, index) => {
-    tile.animate(
-      [
-        { transform: "translateY(0) scale(1)" },
-        { transform: "translateY(-9px) scale(1.04)" },
-        { transform: "translateY(0) scale(1)" }
-      ],
-      { duration: 430, delay: index * 35, easing: "cubic-bezier(0.2, 0.8, 0.3, 1.15)" }
-    );
-  });
-
   const tokenAtAnswer = questionToken;
+  animateSolvedWord(word, tokenAtAnswer);
+  const solvedAnimationDuration =
+    (characterCount(word) - 1) * SOLVED_LETTER_DELAY + 700 + SOLVED_WORD_PAUSE;
+
   window.setTimeout(() => {
     if (tokenAtAnswer !== questionToken) return;
     currentQuestionIndex += 1;
     if (currentQuestionIndex >= selectedQuestions.length) finishGame();
     else startQuestion();
-  }, 800);
+  }, solvedAnimationDuration);
+}
+
+function animateSolvedWord(word, tokenAtAnswer) {
+  const characters = [...word];
+
+  characters.forEach((character, destinationIndex) => {
+    window.setTimeout(() => {
+      if (tokenAtAnswer !== questionToken) return;
+
+      const tiles = [...elements.letters.children];
+      const targetTile = tiles
+        .slice(destinationIndex)
+        .find((tile) => tile.dataset.character === character);
+
+      if (!targetTile) {
+        console.error("Doğru cevap animasyonu için harf kutusu bulunamadı.", character);
+        return;
+      }
+
+      animateTileMove(targetTile, destinationIndex);
+      targetTile.dataset.revealed = "true";
+      targetTile.classList.add("is-revealed");
+      targetTile.classList.add("is-solved");
+      revealedLetterCount = Math.max(revealedLetterCount, destinationIndex + 1);
+      updateInterface();
+    }, destinationIndex * SOLVED_LETTER_DELAY);
+  });
+
 }
 
 function finishGame() {
@@ -460,6 +519,11 @@ function finishGame() {
     elements.resultMeterFill.style.width = `${rate}%`;
   });
   playSound("finish");
+  updateVoiceButton();
+  if (voiceModeEnabled && speechRecognition) {
+    setVoiceStatus("“Yeni oyun başlat” diyebilirsin");
+    scheduleVoiceRecognition(300);
+  }
   elements.playAgainButton.focus({ preventScroll: true });
 }
 
@@ -515,36 +579,54 @@ function tone({ frequency, endFrequency = frequency, duration = 0.12, type = "si
   oscillator.stop(start + duration + 0.02);
 }
 
-function playWhoosh() {
+function playRecordedSound(kind) {
+  const source = RECORDED_SOUND_SOURCES[kind];
+  if (!source) return;
+
+  let audio = recordedSounds.get(kind);
+  if (!audio) {
+    audio = new Audio(source);
+    audio.preload = "auto";
+    recordedSounds.set(kind, audio);
+  }
+
+  audio.pause();
+  audio.currentTime = 0;
+  audio.volume = Math.min(
+    1,
+    Math.pow(volumeLevel / 100, 0.72) * (RECORDED_SOUND_LEVELS[kind] ?? 1)
+  );
+
   const context = ensureAudioContext();
-  if (!context) return;
-  const start = context.currentTime;
-  const oscillator = context.createOscillator();
-  const filter = context.createBiquadFilter();
-  const gainNode = context.createGain();
-  oscillator.type = "sawtooth";
-  oscillator.frequency.setValueAtTime(115, start);
-  oscillator.frequency.exponentialRampToValueAtTime(360, start + 0.24);
-  filter.type = "lowpass";
-  filter.frequency.setValueAtTime(420, start);
-  filter.frequency.exponentialRampToValueAtTime(1250, start + 0.24);
-  gainNode.gain.setValueAtTime(0.0001, start);
-  gainNode.gain.exponentialRampToValueAtTime(0.03 * VOLUME_BOOST, start + 0.035);
-  gainNode.gain.exponentialRampToValueAtTime(0.0001, start + 0.25);
-  oscillator.connect(filter).connect(gainNode).connect(masterGainNode);
-  oscillator.start(start);
-  oscillator.stop(start + 0.27);
+  if (context) {
+    let gainNode = recordedSoundGainNodes.get(kind);
+    if (!gainNode) {
+      const sourceNode = context.createMediaElementSource(audio);
+      gainNode = context.createGain();
+      sourceNode.connect(gainNode).connect(context.destination);
+      recordedSoundGainNodes.set(kind, gainNode);
+    }
+
+    const now = context.currentTime;
+    gainNode.gain.cancelScheduledValues(now);
+    gainNode.gain.setValueAtTime(RECORDED_SOUND_BOOSTS[kind] ?? 1, now);
+  }
+
+  audio.play().catch((error) => {
+    console.debug(`${kind} sesi çalınamadı.`, error);
+  });
 }
 
 function playSound(kind) {
   if (!soundEnabled) return;
   if (kind === "correct") {
-    tone({ frequency: 440, endFrequency: 520, duration: 0.12, type: "sine" });
-    tone({ frequency: 660, endFrequency: 760, duration: 0.18, type: "sine", delay: 0.09 });
+    playRecordedSound("correct");
   } else if (kind === "wrong") {
-    tone({ frequency: 190, endFrequency: 135, duration: 0.19, type: "triangle", gain: 0.035 });
+    playRecordedSound("wrong");
   } else if (kind === "hint") {
-    playWhoosh();
+    playRecordedSound("hint");
+  } else if (kind === "start") {
+    playRecordedSound("start");
   } else if (kind === "finish") {
     [392, 523, 659].forEach((frequency, index) => {
       tone({ frequency, endFrequency: frequency * 1.04, duration: 0.24, gain: 0.038, delay: index * 0.12 });
@@ -593,6 +675,21 @@ function normalizeSpokenWord(value) {
   return normalizeTurkish(value).replace(/[^A-ZÇĞİÖŞÜ]/gu, "");
 }
 
+function normalizeSpokenCommand(value) {
+  return normalizeSpokenWord(value)
+    .replaceAll("Ç", "C")
+    .replaceAll("Ğ", "G")
+    .replaceAll("İ", "I")
+    .replaceAll("Ö", "O")
+    .replaceAll("Ş", "S")
+    .replaceAll("Ü", "U");
+}
+
+function isStartGameCommand(value) {
+  const command = normalizeSpokenCommand(value);
+  return command === "YENIOYUNBASLAT" || command === "OYUNABASLA";
+}
+
 function loadVoiceModePreference() {
   try {
     return window.localStorage.getItem("kelime-voice-mode") === "enabled";
@@ -614,18 +711,29 @@ function saveVoiceModePreference() {
 }
 
 function updateVoiceButton() {
-  elements.voiceButton.classList.toggle("is-enabled", voiceModeEnabled);
-  elements.voiceButton.classList.toggle("is-listening", voiceListening);
-  elements.voiceButton.setAttribute("aria-pressed", String(voiceModeEnabled));
-  elements.voiceButton.setAttribute(
-    "aria-label",
-    voiceModeEnabled ? "Sürekli sesli tahmini kapat" : "Sürekli sesli tahmini aç"
-  );
-  elements.voiceButtonLabel.textContent = voiceListening
-    ? "Dinliyor"
-    : voiceModeEnabled
-      ? "Ses açık"
-      : "Sesle söyle";
+  const updateControl = (button, label, inactiveLabel, activeLabel) => {
+    button.classList.toggle("is-enabled", voiceModeEnabled);
+    button.classList.toggle("is-listening", voiceListening);
+    button.setAttribute("aria-pressed", String(voiceModeEnabled));
+    button.setAttribute(
+      "aria-label",
+      voiceModeEnabled ? "Sürekli sesli tahmini kapat" : "Sürekli sesli tahmini aç"
+    );
+    label.textContent = voiceListening ? "Dinliyor" : voiceModeEnabled ? activeLabel : inactiveLabel;
+  };
+
+  updateControl(elements.voiceButton, elements.voiceButtonLabel, "Sesle söyle", "Ses açık");
+  updateControl(elements.startVoiceButton, elements.startVoiceButtonLabel, "Sesle başla", "Ses açık");
+  updateControl(elements.endVoiceButton, elements.endVoiceButtonLabel, "Sesle başla", "Ses açık");
+}
+
+function setVoiceStatus(message) {
+  const statusElement = !elements.startPanel.hidden
+    ? elements.startVoiceStatus
+    : !elements.endPanel.hidden
+      ? elements.endVoiceStatus
+      : elements.voiceStatus;
+  statusElement.textContent = message;
 }
 
 function stopVoiceRecognition() {
@@ -639,6 +747,7 @@ function stopVoiceRecognition() {
     }
   }
   voiceListening = false;
+  voiceListeningContext = null;
   updateVoiceButton();
 }
 
@@ -654,12 +763,9 @@ function submitSpokenGuess(candidate) {
 function scheduleVoiceRecognition(delay = 400) {
   if (voiceRestartTimer !== null) window.clearTimeout(voiceRestartTimer);
   voiceRestartTimer = null;
-  if (
-    !voiceModeEnabled ||
-    !speechRecognition ||
-    roundLocked ||
-    elements.gameLayout.hidden
-  ) return;
+  const canListenForStartCommand = !elements.startPanel.hidden || !elements.endPanel.hidden;
+  const canListenInGame = !elements.gameLayout.hidden && !roundLocked;
+  if (!voiceModeEnabled || !speechRecognition || (!canListenForStartCommand && !canListenInGame)) return;
 
   voiceRestartTimer = window.setTimeout(() => {
     voiceRestartTimer = null;
@@ -668,18 +774,22 @@ function scheduleVoiceRecognition(delay = 400) {
 }
 
 function beginVoiceRecognition() {
-  if (!voiceModeEnabled || !speechRecognition || voiceListening || roundLocked) return;
+  const canListenForStartCommand = !elements.startPanel.hidden || !elements.endPanel.hidden;
+  const canListenInGame = !elements.gameLayout.hidden && !roundLocked;
+  if (!voiceModeEnabled || !speechRecognition || voiceListening || (!canListenForStartCommand && !canListenInGame)) return;
+
+  voiceListeningContext = canListenForStartCommand ? "command" : "game";
   voiceQuestionToken = questionToken;
   voiceListening = true;
-  elements.answerInput.value = "";
-  elements.voiceStatus.textContent = "Mikrofon açılıyor…";
+  if (voiceListeningContext === "game") elements.answerInput.value = "";
+  setVoiceStatus("Mikrofon açılıyor…");
   updateVoiceButton();
   try {
     speechRecognition.start();
   } catch (error) {
     voiceListening = false;
     updateVoiceButton();
-    elements.voiceStatus.textContent = "Mikrofon yeniden hazırlanıyor…";
+    setVoiceStatus("Mikrofon yeniden hazırlanıyor…");
     console.debug("Ses tanıma başlatılamadı.", error);
     scheduleVoiceRecognition(650);
   }
@@ -689,8 +799,14 @@ function setupSpeechRecognition() {
   const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognitionClass) {
     elements.voiceButton.disabled = true;
+    elements.startVoiceButton.disabled = true;
+    elements.endVoiceButton.disabled = true;
     elements.voiceButton.title = "Bu tarayıcı sesli tahmini desteklemiyor.";
+    elements.startVoiceButton.title = "Bu tarayıcı sesli başlatmayı desteklemiyor.";
+    elements.endVoiceButton.title = "Bu tarayıcı sesli başlatmayı desteklemiyor.";
     elements.voiceStatus.textContent = "Sesli tahmin bu tarayıcıda desteklenmiyor";
+    elements.startVoiceStatus.textContent = "Sesli başlatma bu tarayıcıda desteklenmiyor";
+    elements.endVoiceStatus.textContent = "Sesli başlatma bu tarayıcıda desteklenmiyor";
     return;
   }
 
@@ -703,11 +819,31 @@ function setupSpeechRecognition() {
 
   speechRecognition.onstart = () => {
     voiceListening = true;
-    elements.voiceStatus.textContent = "Dinliyorum…";
+    setVoiceStatus(
+      voiceListeningContext === "command"
+        ? "“Yeni oyun başlat” diyebilirsin"
+        : "Dinliyorum…"
+    );
     updateVoiceButton();
   };
 
   speechRecognition.onresult = (event) => {
+    if (voiceListeningContext === "command") {
+      const result = event.results[event.resultIndex];
+      const commandDetected = Array.from({ length: result.length }, (_, index) =>
+        isStartGameCommand(result[index].transcript)
+      ).some(Boolean);
+
+      if (commandDetected && result.isFinal) {
+        userHasInteracted = true;
+        ensureAudioContext();
+        startNewGame();
+      } else if (result.isFinal) {
+        setVoiceStatus("“Yeni oyun başlat” diyebilirsin");
+      }
+      return;
+    }
+
     if (voiceQuestionToken !== questionToken || roundLocked) return;
     const result = event.results[event.resultIndex];
     const alternatives = Array.from({ length: result.length }, (_, index) =>
@@ -723,10 +859,10 @@ function setupSpeechRecognition() {
     const bestCandidate = exactMatch || lengthMatch || alternatives[0];
 
     elements.answerInput.value = bestCandidate;
-    elements.voiceStatus.textContent = `“${bestCandidate}” olarak duyuluyor…`;
+    setVoiceStatus(`“${bestCandidate}” olarak duyuluyor…`);
 
-    // Doğru alternatif ara sonuçta bile yakalanırsa final sonucu bekleme.
-    if (exactMatch || result.isFinal) submitSpokenGuess(bestCandidate);
+    // Ara sonuç yalnızca gösterilir; kullanıcı sözünü bitirdiğinde kesin sonuç denenir.
+    if (result.isFinal) submitSpokenGuess(bestCandidate);
   };
 
   speechRecognition.onerror = (event) => {
@@ -739,7 +875,7 @@ function setupSpeechRecognition() {
       "audio-capture": "Mikrofona ulaşılamadı",
       network: "Ses tanıma hizmetine ulaşılamadı"
     };
-    elements.voiceStatus.textContent = messages[event.error] || "Sesli tahmin tamamlanamadı";
+    setVoiceStatus(messages[event.error] || "Sesli tahmin tamamlanamadı");
     if (event.error === "not-allowed" || event.error === "audio-capture") {
       voiceModeEnabled = false;
       saveVoiceModePreference();
@@ -762,12 +898,16 @@ function toggleVoiceMode() {
   saveVoiceModePreference();
   if (!voiceModeEnabled) {
     stopVoiceRecognition();
-    elements.voiceStatus.textContent = "Sesli tahmin kapalı";
+    setVoiceStatus("Sesli tahmin kapalı");
     updateVoiceButton();
     return;
   }
 
-  elements.voiceStatus.textContent = "Sesli tahmin açık";
+  setVoiceStatus(
+    !elements.startPanel.hidden || !elements.endPanel.hidden
+      ? "“Yeni oyun başlat” diyebilirsin"
+      : "Sesli tahmin açık"
+  );
   updateVoiceButton();
   beginVoiceRecognition();
 }
@@ -796,6 +936,8 @@ elements.playAgainButton.addEventListener("click", () => {
 });
 elements.soundButton.addEventListener("click", toggleSound);
 elements.voiceButton.addEventListener("click", toggleVoiceMode);
+elements.startVoiceButton.addEventListener("click", toggleVoiceMode);
+elements.endVoiceButton.addEventListener("click", toggleVoiceMode);
 elements.volumeSlider.addEventListener("input", changeVolume);
 elements.volumeSlider.addEventListener("change", () => {
   if (soundEnabled) tone({ frequency: 420, endFrequency: 620, duration: 0.12, gain: 0.04 });
