@@ -1410,18 +1410,21 @@ kbd {
   }
 
   .letter-stage {
-    min-height: 175px;
+    min-height: 158px;
     margin-top: 16px;
   }
 
   .letters {
-    gap: clamp(3px, 1.2vw, 7px);
-    padding: 35px 0;
+    display: grid;
+    width: min(100%, 430px);
+    grid-template-columns: repeat(var(--letter-columns, 5), minmax(0, 1fr));
+    gap: 10px;
+    padding: 24px 0;
   }
 
   .letter-tile {
-    width: 72px;
-    flex-basis: 72px;
+    width: 100%;
+    flex: none;
     border-radius: 9px;
     font-size: clamp(1rem, 6vw, 1.7rem);
     box-shadow:

@@ -154,6 +154,17 @@ function characterCount(word) {
   return [...word].length;
 }
 
+function usesTouchInput() {
+  return window.matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 0;
+}
+
+function focusAnswerInput() {
+  // Telefon/tablette ya da sesli tahmin açıkken otomatik odak, ekran klavyesini
+  // gereksiz yere açar. Klavyeyle oynayan masaüstü kullanıcıları için odak korunur.
+  if (usesTouchInput() || voiceModeEnabled) return;
+  requestAnimationFrame(() => elements.answerInput.focus({ preventScroll: true }));
+}
+
 async function loadWords() {
   try {
     const [commonResponse, dictionaryResponse] = await Promise.all([
@@ -415,7 +426,7 @@ function startDerivationGame() {
     updateDerivationInterface();
     if (derivationTimeLeft <= 0) finishGame();
   }, 1000);
-  requestAnimationFrame(() => elements.answerInput.focus({ preventScroll: true }));
+  focusAnswerInput();
 }
 
 function configureDerivationInterface() {
@@ -498,10 +509,12 @@ function startQuestion() {
   startHintTimers();
   scheduleVoiceRecognition(80);
 
-  requestAnimationFrame(() => elements.answerInput.focus({ preventScroll: true }));
+  focusAnswerInput();
 }
 
 function renderLetters(characters) {
+  const mobileColumns = characters.length > 7 ? Math.ceil(characters.length / 2) : characters.length;
+  elements.letters.style.setProperty("--letter-columns", String(mobileColumns));
   const fragment = document.createDocumentFragment();
   letterDomIds = [];
   elements.letters.replaceChildren();
@@ -679,7 +692,7 @@ function checkAnswer(event) {
     elements.answerRow.classList.add("is-wrong");
     playSound("wrong");
     elements.answerInput.value = "";
-    elements.answerInput.focus();
+    focusAnswerInput();
     return;
   }
 
@@ -733,7 +746,7 @@ function showDerivationError(message) {
   void elements.answerRow.offsetWidth;
   elements.answerRow.classList.add("is-wrong");
   elements.answerInput.value = "";
-  elements.answerInput.focus();
+  focusAnswerInput();
   playSound("wrong");
 }
 
@@ -758,7 +771,7 @@ function showDerivationDuplicate(word) {
   void elements.answerRow.offsetWidth;
   elements.answerRow.classList.add("is-wrong");
   elements.answerInput.value = "";
-  elements.answerInput.focus();
+  focusAnswerInput();
   playSound("duplicate");
 }
 
@@ -1096,6 +1109,11 @@ function updateVoiceButton() {
   updateControl(elements.voiceButton, elements.voiceButtonLabel, "Sesle söyle", "Ses açık");
   updateControl(elements.startVoiceButton, elements.startVoiceButtonLabel, "Sesli seçim", "Ses açık");
   updateControl(elements.endVoiceButton, elements.endVoiceButtonLabel, "Sesli seçim", "Ses açık");
+
+  const voiceOnlyOnTouch = voiceModeEnabled && usesTouchInput();
+  elements.answerInput.readOnly = voiceOnlyOnTouch;
+  elements.answerInput.inputMode = voiceOnlyOnTouch ? "none" : "text";
+  elements.answerInput.setAttribute("aria-readonly", String(voiceOnlyOnTouch));
 }
 
 function setVoiceStatus(message) {
@@ -1305,6 +1323,8 @@ function toggleVoiceMode() {
       ? voiceCommandHint()
       : "Sesli tahmin açık"
   );
+  // Açık kalmış bir mobil klavye varsa sesli moda geçildiği anda kapat.
+  if (usesTouchInput()) elements.answerInput.blur();
   updateVoiceButton();
   beginVoiceRecognition();
 }
