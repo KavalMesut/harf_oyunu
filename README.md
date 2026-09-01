@@ -6,6 +6,8 @@
 
 Karışık harfleri çözün veya on harften yeni kelimeler türetin. Türkçe odaklı, hızlı ve sesle de oynanabilen iki oyun bir arada.
 
+[🎮 Hemen oyna](https://kavalmesut.github.io/harf_oyunu/)
+
 ![HTML5](https://img.shields.io/badge/HTML5-CAAB6C?style=flat-square&logo=html5&logoColor=1E2F23)
 ![CSS3](https://img.shields.io/badge/CSS3-617F97?style=flat-square&logo=css3&logoColor=F5F1DB)
 ![JavaScript](https://img.shields.io/badge/JavaScript-46734F?style=flat-square&logo=javascript&logoColor=F5F1DB)
