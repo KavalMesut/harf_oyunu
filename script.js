@@ -8,6 +8,9 @@ const DERIVATION_SECONDS = 100;
 const DERIVATION_MIN_LENGTH = 4;
 const SOLVED_LETTER_DELAY = 80;
 const SOLVED_WORD_PAUSE = 650;
+// Tanıma oturumu bittiğinde oluşan sessiz aralığı mümkün olduğunca kısa tutar.
+// Bazı tarayıcılar uzun sessizlikte Web Speech oturumunu kendileri kapatır.
+const VOICE_RESTART_DELAY = 120;
 const TURKISH_WORD_PATTERN = /^[A-ZÇĞİÖŞÜ]+$/u;
 const VOLUME_BOOST = 5.5;
 const DERIVATION_VOWELS = ["A", "E", "I", "İ", "O", "Ö", "U", "Ü"];
@@ -405,7 +408,7 @@ function startDerivationGame() {
   elements.deriveFoundCount.textContent = "0";
   updateDerivationInterface();
   playSound("start");
-  scheduleVoiceRecognition(300);
+  scheduleVoiceRecognition(80);
   derivationTimer = window.setInterval(() => {
     derivationTimeLeft -= 1;
     if (derivationTimeLeft > 0 && derivationTimeLeft <= 10) playSound("hint");
@@ -493,7 +496,7 @@ function startQuestion() {
   renderLetters(characters);
   updateInterface();
   startHintTimers();
-  scheduleVoiceRecognition(300);
+  scheduleVoiceRecognition(80);
 
   requestAnimationFrame(() => elements.answerInput.focus({ preventScroll: true }));
 }
@@ -1125,10 +1128,10 @@ function submitSpokenGuess(candidate) {
   elements.voiceStatus.textContent = `“${candidate}” olarak duydum`;
   stopVoiceRecognition();
   elements.answerForm.requestSubmit();
-  if (voiceModeEnabled && !roundLocked) scheduleVoiceRecognition(450);
+  if (voiceModeEnabled && !roundLocked) scheduleVoiceRecognition(VOICE_RESTART_DELAY);
 }
 
-function scheduleVoiceRecognition(delay = 400) {
+function scheduleVoiceRecognition(delay = VOICE_RESTART_DELAY) {
   if (voiceRestartTimer !== null) window.clearTimeout(voiceRestartTimer);
   voiceRestartTimer = null;
   const canListenForStartCommand = !elements.startPanel.hidden || !elements.endPanel.hidden;
@@ -1149,7 +1152,6 @@ function beginVoiceRecognition() {
   voiceListeningContext = canListenForStartCommand ? "command" : "game";
   voiceQuestionToken = questionToken;
   voiceListening = true;
-  if (voiceListeningContext === "game") elements.answerInput.value = "";
   setVoiceStatus("Mikrofon açılıyor…");
   updateVoiceButton();
   try {
@@ -1159,7 +1161,7 @@ function beginVoiceRecognition() {
     updateVoiceButton();
     setVoiceStatus("Mikrofon yeniden hazırlanıyor…");
     console.debug("Ses tanıma başlatılamadı.", error);
-    scheduleVoiceRecognition(650);
+    scheduleVoiceRecognition(VOICE_RESTART_DELAY);
   }
 }
 
@@ -1180,7 +1182,10 @@ function setupSpeechRecognition() {
 
   speechRecognition = new SpeechRecognitionClass();
   speechRecognition.lang = "tr-TR";
-  speechRecognition.continuous = false;
+  // Tek bir kelime duyulduktan sonra da mikrofonu açık bırak. Böylece sonraki
+  // tahminde yeni bir oturum açılması beklenmez; yalnızca tarayıcı zorla
+  // kapatırsa onend içinden hemen yeniden başlatılır.
+  speechRecognition.continuous = true;
   speechRecognition.interimResults = true;
   speechRecognition.maxAlternatives = 5;
   updateVoiceButton();
@@ -1193,6 +1198,18 @@ function setupSpeechRecognition() {
         : "Dinliyorum…"
     );
     updateVoiceButton();
+  };
+
+  speechRecognition.onsoundstart = () => {
+    if (voiceListeningContext === "game" && !roundLocked) {
+      setVoiceStatus("Ses algılandı, kelimeyi dinliyorum…");
+    }
+  };
+
+  speechRecognition.onspeechstart = () => {
+    if (voiceListeningContext === "game" && !roundLocked) {
+      setVoiceStatus("Seni duydum, çözümlüyorum…");
+    }
   };
 
   speechRecognition.onresult = (event) => {
@@ -1255,10 +1272,18 @@ function setupSpeechRecognition() {
     }
   };
 
+  speechRecognition.onnomatch = () => {
+    if (voiceListeningContext === "game" && !roundLocked) {
+      setVoiceStatus("Ses algılandı ama kelime anlaşılamadı; dinlemeye devam ediyorum");
+    }
+  };
+
   speechRecognition.onend = () => {
     voiceListening = false;
     updateVoiceButton();
-    scheduleVoiceRecognition(500);
+    // Bilerek başlatılmış daha erken bir yeniden dinleme varsa (ör. yeni soru
+    // açılırken) eski oturumun onend olayı onu daha geç bir zamanla ezmesin.
+    if (voiceRestartTimer === null) scheduleVoiceRecognition(VOICE_RESTART_DELAY);
   };
 }
 
