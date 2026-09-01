@@ -1,6 +1,6 @@
 @echo off
 setlocal
-title Kelimeyi Bul
+title Harf Oyunu
 cd /d "%~dp0"
 
 where python >nul 2>nul

@@ -8,7 +8,7 @@
       name="description"
       content="Karışık Türkçe kelimeleri ipuçları tükenmeden bulduğunuz, 12 soruluk kelime oyunu."
     />
-    <title>Kelimeyi Bul</title>
+    <title>Harf Oyunu · Türkçe kelime oyunları</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -17,11 +17,11 @@
 
     <main class="app-shell">
       <header class="topbar">
-        <a class="brand" href="./" aria-label="Kelimeyi Bul ana sayfa">
-          <span class="brand__mark" aria-hidden="true">K</span>
+        <a class="brand" href="./" aria-label="Harf Oyunu ana sayfa">
+          <span class="brand__mark" aria-hidden="true">H</span>
           <span>
-            <strong>Kelimeyi Bul</strong>
-            <small>Türkçe kelime oyunu</small>
+            <strong>Harf Oyunu</strong>
+            <small>Türkçe kelime oyunları</small>
           </span>
         </a>
 
@@ -51,35 +51,43 @@
         <p>Kelime listesi hazırlanıyor…</p>
       </section>
 
-      <section class="start-panel glass" id="startPanel" hidden aria-labelledby="startTitle">
+      <section class="start-panel glass" id="startPanel" hidden aria-label="Oyun modu seçimi">
         <div class="start-panel__content">
-          <span class="eyebrow">12 kelime · 900 puan</span>
-          <h1 id="startTitle">Harfleri çöz,<br />kelimeyi bul.</h1>
+          <span class="eyebrow">İki oyun · tek sözlük</span>
           <p>
-            Beş harfli kelimelerle başla, on harfe kadar ilerle. Her beş saniyede
-            bir harf yerine oturur; hızlı tahmin daha yüksek puan getirir.
+            Karışık harfleri çözerek doğru kelimeyi bul veya aynı harflerden
+            olabildiğince çok kelime türet.
           </p>
-          <button class="button button--primary start-button" id="startGameButton" type="button">
-            Oyuna başla <span aria-hidden="true">→</span>
-          </button>
+          <div class="mode-grid" aria-label="Oyun modu seçimi">
+            <button class="mode-card mode-card--primary" id="startUnscrambleButton" type="button">
+              <span class="mode-card__eyebrow">12 soru · 900 puan</span>
+              <strong>Çöz</strong>
+              <span>Karışık verilen kelimeyi ipuçlarından önce çöz.</span>
+            </button>
+            <button class="mode-card" id="startDerivationButton" type="button">
+              <span class="mode-card__eyebrow">100 saniye · serbest puan</span>
+              <strong>Türet</strong>
+              <span>10 harften dört veya daha fazla harfli kelimeler üret.</span>
+            </button>
+          </div>
           <div class="start-voice-control">
             <button
               class="voice-button"
               id="startVoiceButton"
               type="button"
-              aria-label="Sesli başlatmayı aç"
+              aria-label="Sesli oyun seçimini aç"
               aria-pressed="false"
             >
               <span class="voice-button__dot" aria-hidden="true"></span>
-              <span id="startVoiceButtonLabel">Sesle başla</span>
+            <span id="startVoiceButtonLabel">Sesli seçim</span>
             </button>
             <span class="voice-status" id="startVoiceStatus" aria-live="polite"></span>
           </div>
         </div>
         <div class="start-panel__rules" aria-label="Oyun özeti">
-          <div><strong>12</strong><span>kelime</span></div>
-          <div><strong>5 sn</strong><span>ipucu aralığı</span></div>
-          <div><strong>900</strong><span>maksimum puan</span></div>
+          <div><strong>2</strong><span>oyun modu</span></div>
+          <div><strong>TR</strong><span>Türkçe sözlük</span></div>
+          <div><strong>∞</strong><span>kelime keyfi</span></div>
         </div>
       </section>
 
@@ -96,13 +104,13 @@
       <section class="game-layout" id="gameLayout" hidden>
         <aside class="score-card glass" aria-label="Oyun durumu">
           <div class="score-card__topline">
-            <span class="eyebrow">Toplam puan</span>
+            <span class="eyebrow" id="scoreLabel">Toplam puan</span>
             <span class="round-pill" id="questionCounter">Soru 1 / 12</span>
           </div>
 
           <div class="total-score" aria-live="polite">
             <strong id="totalScore">0</strong>
-            <span>/ 900</span>
+            <span id="scoreMaximum">/ 900</span>
           </div>
 
           <div class="progress" aria-label="Oyun ilerlemesi">
@@ -115,26 +123,26 @@
           <div class="score-divider"></div>
 
           <div class="available-score">
-            <span>Bu sorunun değeri</span>
-            <strong><span id="availableScore">50</span> puan</strong>
+            <span id="availableLabel">Bu sorunun değeri</span>
+            <strong><span id="availableScore">50</span> <span id="availableUnit">puan</span></strong>
           </div>
 
           <div class="hint-clock" id="hintClock">
             <div class="hint-clock__ring" aria-hidden="true">
               <span id="countdownValue">5</span>
             </div>
-            <p><strong>Sıradaki ipucu</strong><span>İlk harften başlayarak</span></p>
+            <p><strong id="hintTitle">Sıradaki ipucu</strong><span id="hintDescription">İlk harften başlayarak</span></p>
           </div>
 
           <button class="button button--quiet" id="newGameButton" type="button">
-            Yeni oyun başlat
+            Oyun modunu seç
           </button>
         </aside>
 
         <section class="play-card glass" aria-labelledby="roundHeading">
           <div class="round-heading">
             <div>
-              <span class="eyebrow">Karışık harfler</span>
+              <span class="eyebrow" id="roundEyebrow">Karışık harfler</span>
               <h1 id="roundHeading">Kelimeyi çöz</h1>
             </div>
             <span class="length-badge"><strong id="wordLength">5</strong> harf</span>
@@ -150,7 +158,7 @@
 
           <form class="answer-form" id="answerForm" novalidate>
             <div class="answer-label-row">
-              <label for="answerInput">Cevabın</label>
+              <label for="answerInput" id="answerLabel">Cevabın</label>
               <span class="voice-status" id="voiceStatus" aria-live="polite"></span>
             </div>
             <div class="answer-row" id="answerRow">
@@ -176,7 +184,7 @@
                 <span id="voiceButtonLabel">Sesle söyle</span>
               </button>
               <button class="button button--primary" id="checkButton" type="submit">
-                Kontrol et
+                <span id="checkButtonLabel">Kontrol et</span>
                 <span aria-hidden="true">→</span>
               </button>
             </div>
@@ -184,9 +192,17 @@
 
           <div class="feedback" id="feedbackMessage" aria-live="assertive"></div>
 
+          <section class="derive-found" id="deriveFoundSection" hidden aria-labelledby="deriveFoundTitle">
+            <div class="derive-found__heading">
+              <span id="deriveFoundTitle">Bulunan kelimeler</span>
+              <strong id="deriveFoundCount">0</strong>
+            </div>
+            <div class="derive-found__list" id="deriveFoundList"></div>
+          </section>
+
           <footer class="play-card__footer">
-            <span><kbd>Enter</kbd> ile kontrol edebilirsin</span>
-            <span>İpucu: <strong id="revealedCount">0 / 5</strong></span>
+            <span id="keyboardHint"><kbd>Enter</kbd> ile kontrol edebilirsin</span>
+            <span id="footerDetail">İpucu: <strong id="revealedCount">0 / 5</strong></span>
           </footer>
         </section>
       </section>
@@ -194,25 +210,38 @@
       <section class="end-panel glass" id="endPanel" hidden aria-live="polite">
         <span class="end-panel__seal" aria-hidden="true">✓</span>
         <span class="eyebrow">Oyun tamamlandı</span>
-        <h1>12 kelimeyi de tamamladın.</h1>
-        <p class="end-panel__score"><strong id="finalScore">0</strong><span>/ 900 puan</span></p>
+        <h1 id="endTitle">12 kelimeyi de tamamladın.</h1>
+        <p class="end-panel__score"><strong id="finalScore">0</strong><span id="finalScoreSuffix">/ 900 puan</span></p>
         <div class="result-meter" aria-label="Başarı oranı">
           <span id="resultMeterFill"></span>
         </div>
-        <p class="end-panel__rate">Başarı oranı: <strong id="successRate">%0</strong></p>
+        <p class="end-panel__rate" id="endSummary">Başarı oranı: <strong id="successRate">%0</strong></p>
+        <section class="derive-results" id="deriveResults" hidden aria-labelledby="deriveResultsTitle">
+          <div class="derive-results__heading">
+            <div>
+              <span class="eyebrow">Tur özeti</span>
+              <h2 id="deriveResultsTitle">Tüm olası kelimeler</h2>
+            </div>
+            <span class="derive-results__legend" aria-label="Renk açıklaması">
+              <i class="is-found" aria-hidden="true"></i> Bulunan
+              <i class="is-missed" aria-hidden="true"></i> Kaçırılan
+            </span>
+          </div>
+          <div class="derive-results__grid" id="deriveResultsGrid"></div>
+        </section>
         <button class="button button--primary" id="playAgainButton" type="button">
-          Yeni oyun başlat <span aria-hidden="true">→</span>
+          Oyun modunu seç <span aria-hidden="true">→</span>
         </button>
         <div class="start-voice-control end-voice-control">
           <button
             class="voice-button"
             id="endVoiceButton"
             type="button"
-            aria-label="Sesli başlatmayı aç"
+            aria-label="Sesli oyun seçimini aç"
             aria-pressed="false"
           >
             <span class="voice-button__dot" aria-hidden="true"></span>
-            <span id="endVoiceButtonLabel">Sesle başla</span>
+            <span id="endVoiceButtonLabel">Sesli seçim</span>
           </button>
           <span class="voice-status" id="endVoiceStatus" aria-live="polite"></span>
         </div>
