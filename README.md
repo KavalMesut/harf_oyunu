@@ -2,119 +2,78 @@
 
 # Harf Oyunu
 
-### Harfleri diz, sözü bul.
+### Çöz · Türet · Söyle
 
-Modern, hızlı ve Türkçe odaklı iki kelime oyunu.
+Karışık harfleri çözün veya on harften yeni kelimeler türetin. Türkçe odaklı, hızlı ve sesle de oynanabilen iki oyun bir arada.
 
-![HTML](https://img.shields.io/badge/HTML5-CAAB6C?style=flat-square&logo=html5&logoColor=46734F)
-![CSS](https://img.shields.io/badge/CSS3-617F97?style=flat-square&logo=css&logoColor=D0CCAF)
-![JavaScript](https://img.shields.io/badge/JavaScript-9A352D?style=flat-square&logo=javascript&logoColor=D0CCAF)
-![Framework](https://img.shields.io/badge/framework-yok-46734F?style=flat-square)
+![HTML5](https://img.shields.io/badge/HTML5-CAAB6C?style=flat-square&logo=html5&logoColor=1E2F23)
+![CSS3](https://img.shields.io/badge/CSS3-617F97?style=flat-square&logo=css3&logoColor=F5F1DB)
+![JavaScript](https://img.shields.io/badge/JavaScript-46734F?style=flat-square&logo=javascript&logoColor=F5F1DB)
+![Framework](https://img.shields.io/badge/framework-yok-CAAB6C?style=flat-square)
+
+<img src="assets/harf-oyunu.png" alt="Harf Oyunu ekranı" width="900" />
 
 </div>
 
-## Ekran görüntüsü
+## Oyun modları
 
-![Harf Oyunu ekranı](assets/sozdiz-oyun.png)
+| Mod | Nasıl oynanır? | Hedef |
+| --- | --- | --- |
+| **Çöz** | Karışık verilen harfleri doğru sıraya getirin. | 12 soruyu, ipuçları açılmadan çözerek 900 puana yaklaşın. |
+| **Türet** | Dört sesli ve altı sessiz harften oluşan 10 harfi kullanın. | 100 saniye içinde mümkün olduğunca çok 4+ harfli Türkçe kelime bulun. |
 
-## Oyunlar
+**Türet** modunda en uzun kelimeler çift puan getirir. Tur sonunda tüm olası kelimeler; bulunanlar yeşil, kaçırılanlar kırmızı olacak şekilde gösterilir.
 
-Harf Oyunu açıldığında iki oyun arasından seçim yaparsınız:
+## Öne çıkanlar
 
-- **Çöz:** Karışık verilen Türkçe harfleri doğru sıraya getirerek 12 kelimeyi çözün. Sorular 5 harfli kelimelerle başlar ve aşamalı olarak 10 harfe kadar ilerler; her beş saniyede bir ipucu açılır.
-- **Türet:** Dört sesli ve altı sessiz harften oluşan 10 harfi kullanarak, 100 saniye içinde mümkün olduğunca çok 4+ harfli kelime üretin. En uzun kelimeler çift puan getirir.
-
-## Öne çıkan özellikler
-
-- 5, 6, 7, 8, 9 ve 10 harfli kelimelerden oluşan sabit zorluk akışı
-- Her oyun için rastgele ve tekrarsız kelime seçimi
-- Türkçe `i`, `ı`, `İ`, `I`, `ç`, `ğ`, `ö`, `ş` ve `ü` karakterleriyle doğru karşılaştırma
-- Harf kimliklerini koruyan akıcı FLIP ipucu animasyonu
-- Her beş saniyede bir açılan sıralı harf ipuçları
-- 900 puan üzerinden hesaplanan skor ve başarı oranı
-- 100 saniyelik, 10 harfli tek oyunculu kelime türetme modu
-- Kelime türetmede sözlük ve harf sayısı doğrulaması, tekrar engeli ve en uzun kelime bonusu
-- Tekrar edilen kelimede ayrı uyarı sesi ve bulunan kelimeyi vurgulama
-- Kelime türetme turu sonunda bulunan/kaçırılan tüm olası kelimelerin renkli dökümü
-- Web Audio API ile üretilen, seviyesi ayarlanabilir oyun sesleri
-- En uzun kelime bonusunda alkış sesi
-- Desteklenen tarayıcılarda anlık Türkçe sesli tahmin
-- Açıldığında sorular arasında etkin kalabilen sürekli sesli tahmin modu
-- Başlangıç ve sonuç ekranlarında “çöz” veya “türet” sesli komutuyla oyun seçimi
-- Tüm harfler açıldığında otomatik olarak sonraki kelimeye geçiş
-- Masaüstü ve mobil ekranlara uyumlu tasarım
-- Harici framework, font, ikon veya ses dosyası olmadan çalışma
+- Tek ekranda iki farklı Türkçe kelime oyunu
+- Türkçe karakterler için doğru normalizasyon: `ç`, `ğ`, `ı`, `İ`, `ö`, `ş`, `ü`
+- Sürekli sesli oyun: mod seçimi ve kelime tahminleri eller serbest yapılabilir
+- **Çöz** modunda beş saniyede bir açılan sıralı harf ipucu animasyonu
+- **Türet** modunda çözülebilir kelimeler sunan dengeli 10 harflik raflar
+- Tekrar kelimelerde ayrı uyarı sesi ve görsel vurgulama
+- Ses seviyesi, ses kapatma ve yerel ses efektleri
+- Masaüstü ve mobil ekranlar için uyumlu arayüz
+- Harici framework veya paket gerektirmez
 
 ## Hızlı başlangıç
 
-### Windows — tek tıkla
-
-Proje klasöründeki **`Oyunu_Baslat.bat`** dosyasına çift tıklayın.
-
-Başlatıcı:
-
-1. Yerel sunucu çalışmıyorsa arka planda başlatır.
-2. Sunucu zaten çalışıyorsa ikinci bir kopya oluşturmaz.
-3. Oyunu varsayılan tarayıcınızda açar.
-
-> [!NOTE]
-> Bilgisayarınızda Python veya Python Launcher kurulu olmalıdır.
-
 ### Linux — tek tıkla
 
-Proje klasöründeki **`Harf_Oyunu.desktop`** dosyasını çalıştırın. İlk
-çalıştırmada dosya yöneticiniz bu dosyaya güvenmenizi veya çalıştırılabilir
-olarak işaretlemenizi isteyebilir; onaylayın. Bu tek dosyalı başlatıcı boş bir
-yerel bağlantı noktası seçer, sunucuyu arka planda çalıştırır ve oyunu
-varsayılan tarayıcıda açar.
+Proje klasöründeki **`Harf_Oyunu.desktop`** dosyasını çalıştırın. İlk seferde dosya yöneticiniz güvenme ya da çalıştırılabilir yapma izni isteyebilir; onaylayın. Başlatıcı yerel sunucuyu açar ve oyunu varsayılan tarayıcıda başlatır.
 
-> [!NOTE]
-> Python 3 ve `xdg-open` kurulu olmalıdır. Çoğu Linux dağıtımında ikisi de
-> hazır gelir; Python eksikse `python3` paketini kurun.
+> Python 3 ve `xdg-open` gereklidir. Çoğu Linux dağıtımında hazır gelir.
 
-### Python ile
+### Windows — tek tıkla
 
-Proje klasöründe bir terminal açın:
+Proje klasöründeki **`Harf_Oyunu_Baslat.bat`** dosyasına çift tıklayın.
+
+> Python veya Python Launcher kurulu olmalıdır.
+
+### Terminalden çalıştırma
 
 ```bash
-python -m http.server 8000
+python3 -m http.server 8000
 ```
 
-Ardından şu adresi ziyaret edin:
+Ardından tarayıcıdan `http://localhost:8000` adresini açın.
 
-```text
-http://localhost:8000
-```
+> `index.html` dosyasını doğrudan açmayın. Kelime listelerinin yüklenebilmesi için uygulama bir HTTP sunucusu üzerinden çalışmalıdır.
 
-### VS Code Live Server ile
+## Sesle oyna
 
-1. Proje klasörünü VS Code ile açın.
-2. **Live Server** eklentisini kurun.
-3. `index.html` dosyasına sağ tıklayın.
-4. **Open with Live Server** seçeneğini kullanın.
+1. Ana ekrandaki **Sesli seçim** düğmesine basın ve tarayıcının mikrofon iznini verin.
+2. **“Çöz”** veya **“Türet”** diyerek oyun modunu seçin.
+3. Oyun sırasında kelimeyi söyleyin. Kesinleşen tahmin otomatik olarak denenir ve mikrofon sıradaki tahmin için yeniden dinlemeye geçer.
 
-> [!IMPORTANT]
-> `index.html` dosyasını doğrudan `file://` adresiyle açmayın. Tarayıcı güvenlik kuralları, kelime listesinin `fetch()` ile okunmasını engelleyebilir.
+Web Speech API desteği tarayıcıya göre değişir. Klavye ile oyun her zaman kullanılabilir; sesli tanıma bazı tarayıcılarda internet bağlantısı gerektirebilir.
 
-## Nasıl oynanır?
+## Puanlama
 
 ### Çöz
 
-1. **Oyuna başla** düğmesine basın.
-2. Karışık harflerden doğru Türkçe kelimeyi bulun.
-3. Cevabınızı klavyeyle yazın veya **Sesle söyle** seçeneğini kullanın.
-4. Klavyede `Enter` tuşuna basın ya da **Kontrol et** düğmesini seçin.
-5. İpuçları açılmadan cevap vererek mümkün olan en yüksek puanı kazanın.
-
-### Türet
-
-1. Açılış ekranından **Türet** seçeneğini seçin.
-2. Gösterilen 10 harfle en az 4 harfli Türkçe kelimeler yazın.
-3. Her kelimeyi `Enter` ile gönderin; aynı kelime tekrar puan getirmez.
-4. Süre bitene kadar devam edin. En uzun kelimeler çift puandır.
-
 | Kelime uzunluğu | Başlangıç puanı | Soru sayısı |
-|---:|---:|---:|
+| ---: | ---: | ---: |
 | 5 harf | 50 | 2 |
 | 6 harf | 60 | 2 |
 | 7 harf | 70 | 2 |
@@ -123,92 +82,49 @@ http://localhost:8000
 | 10 harf | 100 | 2 |
 | **Toplam** | **900** | **12** |
 
-Her açılan ipucu harfi, sorudan alınabilecek puanı 10 azaltır. Yanlış cevap doğrudan puan kaybettirmez.
+Her ipucu, o sorunun puanını 10 azaltır.
 
-## Sesli tahmin
+### Türet
 
-Sesli tahmin, tarayıcının Web Speech API desteğini kullanır.
-
-- Tanıma dili `tr-TR` olarak ayarlanır.
-- Konuşma sırasında ara sonuç cevap kutusunda gösterilir.
-- Ara sonuç kutuda gösterilir; kullanıcı sözünü bitirdikten sonra kesinleşen tahmin onay beklemeden otomatik olarak denenir.
-- Sürekli mod bir kez açıldığında yeni sorularda ve kelime türetme tahminlerinde kendiliğinden devam eder.
-- Başlangıç ve sonuç ekranlarında sesli mod açıksa “çöz” veya “türet” diyerek oyun seçebilirsiniz.
-- Tercih tarayıcıda saklanır ve aynı düğmeyle kapatılabilir.
-- İlk kullanımda tarayıcı mikrofon izni ister.
-
-Sesli tanıma desteği ve doğruluğu tarayıcıya göre değişebilir. Klavye girişi her zaman kullanılabilir. Tarayıcı, ses tanıma için internet bağlantısı gerektirebilir; oyunun klavye ile oynanan temel akışı çevrimdışı çalışır.
-
-## Kelime listesi
-
-Oyun, günlük kullanım için süzülmüş `turkce_kelime_listesi_gunluk.txt` dosyasını yükler. Varsayılan havuzda yaygın mastar fiiller bulunur; 8–10 harf gruplarında mastar ve diğer kelimelerin sayısı eşittir, böylece uzun sorular çeşitli kalır. Dosya UTF-8 kodlamalı olmalı ve her satırda tek bir kelime bulunmalıdır. Tam TDK madde başlığı arşivi olan `turkce_kelime_listesi.txt` korunur; istenirse daha geniş bir havuz için tekrar kullanılabilir.
-
-```text
-bağıl
-kavram
-devinim
-paradoks
-görelilik
-simülasyon
-```
-
-Oyun yükleme sırasında:
-
-- Baştaki ve sondaki boşlukları temizler.
-- Boş satırları atlar.
-- Tekrarlanan kelimeleri birleştirir.
-- Kelimeleri Türkçe büyük harfe dönüştürür.
-- Yalnızca Türkçe harflerden oluşan kelimeleri kabul eder.
-- Sadece 5–10 harfli kelimeleri oyuna dahil eder.
-- Her uzunluk için en az iki geçerli kelime bulunmasını zorunlu tutar.
+- Her geçerli kelime: `harf sayısı × 10` puan
+- En uzun kelime: `harf sayısı × 10 × 2` puan
+- Aynı kelime yalnızca bir kez puan getirir.
 
 ## Proje yapısı
 
 ```text
 harf_oyunu/
-├── index.html                  # Uygulama arayüzü
-├── style.css                   # Tasarım ve animasyonlar
-├── script.js                   # Oyun, ses ve sesli tahmin mantığı
-├── turkce_kelime_listesi_gunluk.txt # Oyunda kullanılan günlük kelime havuzu
-├── turkce_kelime_listesi.txt   # Tam Türkçe kelime arşivi
-├── assets/cheering.wav          # En uzun kelime bonusu alkışı
-├── Oyunu_Baslat.bat            # Windows tek tık başlatıcı
-├── Harf_Oyunu.desktop           # Linux'ta tek dosyalı, tıklanabilir başlatıcı
+├── index.html                    # Uygulama arayüzü
+├── style.css                     # Tasarım, düzen ve animasyonlar
+├── script.js                     # Oyun, ses ve sesli tahmin mantığı
+├── turkce_kelime_listesi_sik_kulanilan_5000.txt # Çöz modunun sık kullanılan kelime havuzu
+├── turkce_kelime_listesi.txt     # Türet modunun Türkçe sözlüğü
+├── assets/
+│   ├── harf-oyunu.png            # Ekran görüntüsü
+│   ├── cheering.wav              # En uzun kelime bonus sesi
+│   ├── correct.mp3
+│   ├── hint.mp3
+│   ├── start.mp3
+│   └── wrong.mp3
+├── Harf_Oyunu.desktop            # Linux başlatıcısı
+├── Harf_Oyunu_Baslat.bat         # Windows başlatıcısı
 └── README.md
 ```
 
-## Teknik ayrıntılar
-
-- Saf HTML5, CSS3 ve JavaScript
-- Web Audio API
-- Web Speech API
-- Fisher–Yates harf karıştırma
-- Web Animations API ile FLIP hareketleri
-- Unicode güvenli karakter sayımı
-- Türkçe yerel büyük harf normalizasyonu
-- Tarayıcı `localStorage` alanında sesli tahmin tercihi
-
 ## Geliştirme
 
-Kod değişikliklerinden sonra JavaScript sözdizimini kontrol etmek için:
+JavaScript yapısını kontrol etmek için:
 
 ```bash
 node --check script.js
 ```
 
-Oyunun temel akışını test ederken özellikle şunları doğrulayın:
-
-- Aynı oyunda kelimelerin tekrarlanmaması
-- İpucunda doğru harf kutusunun hareket etmesi
-- Birden fazla ipucu zamanlayıcısının oluşmaması
-- Türkçe karakterlerin doğru karşılaştırılması
-- On harfli kelimelerin mobil ekranda taşmaması
-- Sesli tahmin kapatıldığında otomatik dinlemenin durması
+Oyun davranışını değiştirirken özellikle Türkçe karakter karşılaştırmasını, sesli modun ardışık dinlemesini, ipucu zamanlayıcılarını ve Türet modundaki harf sayısı doğrulamasını test edin.
 
 ---
 
 <div align="center">
 
-**Harf Oyunu** · Harfleri diz, sözü bul.
+**Harf Oyunu** · Harflerle düşün, kelimelerle oyna.
 
 </div>

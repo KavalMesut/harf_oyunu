@@ -153,15 +153,15 @@ function characterCount(word) {
 
 async function loadWords() {
   try {
-    const [dailyResponse, dictionaryResponse] = await Promise.all([
-      fetch("turkce_kelime_listesi_gunluk.txt", { cache: "no-store" }),
+    const [commonResponse, dictionaryResponse] = await Promise.all([
+      fetch("turkce_kelime_listesi_sik_kulanilan_5000.txt", { cache: "no-store" }),
       fetch("turkce_kelime_listesi.txt", { cache: "no-store" })
     ]);
-    if (!dailyResponse.ok || !dictionaryResponse.ok) {
-      throw new Error(`HTTP ${dailyResponse.status} / ${dictionaryResponse.status}`);
+    if (!commonResponse.ok || !dictionaryResponse.ok) {
+      throw new Error(`HTTP ${commonResponse.status} / ${dictionaryResponse.status}`);
     }
 
-    const [rawText, dictionaryText] = await Promise.all([dailyResponse.text(), dictionaryResponse.text()]);
+    const [rawText, dictionaryText] = await Promise.all([commonResponse.text(), dictionaryResponse.text()]);
     const uniqueWords = new Set(
       rawText
         .split(/\r?\n/u)
