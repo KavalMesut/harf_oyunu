@@ -2,7 +2,17 @@
 
 const GAME_LENGTHS = [5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10];
 const REQUIRED_LENGTHS = [5, 6, 7, 8, 9, 10];
-const MAX_SCORE = 900;
+const LEVELS = [
+  { id: 1, label: "Çocuk", size: 500, lengths: [5, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8] },
+  { id: 2, label: "Başlangıç", size: 1000, lengths: [5, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8] },
+  { id: 3, label: "Orta", size: 2000, lengths: [5, 5, 5, 6, 6, 6, 7, 7, 8, 8, 9, 9] },
+  { id: 4, label: "İleri", size: 5000, lengths: GAME_LENGTHS },
+  { id: 5, label: "Usta", size: 10000, lengths: GAME_LENGTHS }
+];
+const MULTIPLAYER_BUZZ_KEYS = ["1", "2", "3", "4", "5", "6"];
+const MULTIPLAYER_ANSWER_SECONDS = 5;
+const MULTIPLAYER_DERIVATION_SECONDS = 5;
+const MULTIPLAYER_DERIVATION_TURNS_PER_PLAYER = 10;
 const HINT_SECONDS = 5;
 const DERIVATION_SECONDS = 100;
 const DERIVATION_MIN_LENGTH = 4;
@@ -45,11 +55,17 @@ const RECORDED_SOUND_BOOSTS = {
 
 // Açık oyun durumu: her yeni oyunda tek bir kaynaktan sıfırlanır.
 let wordPool = new Map();
+const wordPoolsByLevel = new Map();
 let derivationDictionary = [];
 let selectedQuestions = [];
 let gameMode = null;
 let currentQuestionIndex = 0;
 let totalScore = 0;
+let selectedLevel = 4;
+let gameSession = "single";
+let menuState = "home";
+let multiplayer = null;
+let answerDeadlineTimer = null;
 let revealedLetterCount = 0;
 let currentQuestionTimer = null;
 let countdownTimer = null;
@@ -57,6 +73,7 @@ let derivationTimer = null;
 let derivationLetters = [];
 let derivationValidWords = new Set();
 let derivationFoundWords = [];
+let derivationRounds = [];
 let derivationScore = 0;
 let derivationTimeLeft = DERIVATION_SECONDS;
 let derivationLongestWordLength = 0;
@@ -80,15 +97,33 @@ let voiceQuestionToken = 0;
 let voiceModeEnabled = loadVoiceModePreference();
 let voiceRestartTimer = null;
 let voiceListeningContext = null;
+let announcementEnabled = loadAnnouncementPreference();
+let announcementToken = 0;
+let announcementVoice = null;
+let announcementVoiceAvailability = null;
 
 const elements = {
   loadingPanel: document.querySelector("#loadingPanel"),
   startPanel: document.querySelector("#startPanel"),
   startUnscrambleButton: document.querySelector("#startUnscrambleButton"),
   startDerivationButton: document.querySelector("#startDerivationButton"),
+  modeGrid: document.querySelector(".mode-grid"),
   startVoiceButton: document.querySelector("#startVoiceButton"),
   startVoiceButtonLabel: document.querySelector("#startVoiceButtonLabel"),
   startVoiceStatus: document.querySelector("#startVoiceStatus"),
+  singlePlayerButton: document.querySelector("#singlePlayerButton"),
+  multiPlayerButton: document.querySelector("#multiPlayerButton"),
+  difficultyPanel: document.querySelector("#difficultyPanel"),
+  levelGrid: document.querySelector("#levelGrid"),
+  backToModesButton: document.querySelector("#backToModesButton"),
+  multiplayerPanel: document.querySelector("#multiplayerPanel"),
+  playerInputs: document.querySelector("#playerInputs"),
+  addPlayerButton: document.querySelector("#addPlayerButton"),
+  multiplayerModeSelect: document.querySelector("#multiplayerModeSelect"),
+  multiplayerRoundsSelect: document.querySelector("#multiplayerRoundsSelect"),
+  multiplayerLevelSelect: document.querySelector("#multiplayerLevelSelect"),
+  multiplayerLevelOption: document.querySelector("#multiplayerLevelOption"),
+  startMultiplayerButton: document.querySelector("#startMultiplayerButton"),
   errorPanel: document.querySelector("#errorPanel"),
   errorMessage: document.querySelector("#errorMessage"),
   gameLayout: document.querySelector("#gameLayout"),
@@ -111,6 +146,7 @@ const elements = {
   wordLength: document.querySelector("#wordLength"),
   letters: document.querySelector("#letters"),
   hintCopy: document.querySelector("#hintCopy"),
+  derivationTurnSlot: document.querySelector("#derivationTurnSlot"),
   answerForm: document.querySelector("#answerForm"),
   answerLabel: document.querySelector("#answerLabel"),
   answerRow: document.querySelector("#answerRow"),
@@ -120,7 +156,12 @@ const elements = {
   voiceStatus: document.querySelector("#voiceStatus"),
   checkButton: document.querySelector("#checkButton"),
   checkButtonLabel: document.querySelector("#checkButtonLabel"),
+  passButton: document.querySelector("#passButton"),
   feedbackMessage: document.querySelector("#feedbackMessage"),
+  multiplayerStatus: document.querySelector("#multiplayerStatus"),
+  multiplayerTurnLabel: document.querySelector("#multiplayerTurnLabel"),
+  multiplayerRoundLabel: document.querySelector("#multiplayerRoundLabel"),
+  playerScoreboard: document.querySelector("#playerScoreboard"),
   deriveFoundSection: document.querySelector("#deriveFoundSection"),
   deriveFoundCount: document.querySelector("#deriveFoundCount"),
   deriveFoundList: document.querySelector("#deriveFoundList"),
@@ -136,12 +177,16 @@ const elements = {
   finalScoreSuffix: document.querySelector("#finalScoreSuffix"),
   endTitle: document.querySelector("#endTitle"),
   endSummary: document.querySelector("#endSummary"),
+  multiplayerResults: document.querySelector("#multiplayerResults"),
+  multiplayerResultsList: document.querySelector("#multiplayerResultsList"),
   deriveResults: document.querySelector("#deriveResults"),
   deriveResultsGrid: document.querySelector("#deriveResultsGrid"),
   successRate: document.querySelector("#successRate"),
   resultMeterFill: document.querySelector("#resultMeterFill"),
   soundButton: document.querySelector("#soundButton"),
   soundLabel: document.querySelector("#soundLabel"),
+  announcementButton: document.querySelector("#announcementButton"),
+  announcementLabel: document.querySelector("#announcementLabel"),
   volumeSlider: document.querySelector("#volumeSlider"),
   volumeOutput: document.querySelector("#volumeOutput")
 };
@@ -167,32 +212,36 @@ function focusAnswerInput() {
 
 async function loadWords() {
   try {
-    const [commonResponse, dictionaryResponse] = await Promise.all([
-      fetch("turkce_kelime_listesi_sik_kulanilan_5000.txt", { cache: "no-store" }),
-      fetch("turkce_kelime_listesi.txt", { cache: "no-store" })
+    const [largestLevelResponse, dictionaryResponse] = await Promise.all([
+      fetch("assets/dictionaries/turkce_kelime_listesi_sik_kullanilan_10000.txt", { cache: "no-store" }),
+      fetch("assets/dictionaries/turkce_kelime_listesi.txt", { cache: "no-store" })
     ]);
-    if (!commonResponse.ok || !dictionaryResponse.ok) {
-      throw new Error(`HTTP ${commonResponse.status} / ${dictionaryResponse.status}`);
+    if (!largestLevelResponse.ok || !dictionaryResponse.ok) {
+      throw new Error("Seviye sözlüklerinden biri yüklenemedi.");
     }
 
-    const [rawText, dictionaryText] = await Promise.all([commonResponse.text(), dictionaryResponse.text()]);
-    const uniqueWords = new Set(
-      rawText
-        .split(/\r?\n/u)
-        .map(normalizeTurkish)
-        .filter(Boolean)
+    const [largestLevelText, dictionaryText] = await Promise.all([
+      largestLevelResponse.text(),
+      dictionaryResponse.text()
+    ]);
+    const rankedWords = largestLevelText.split(/\r?\n/u).map(normalizeTurkish).filter(Boolean);
+    LEVELS.forEach((level) => {
+      const pool = new Map(REQUIRED_LENGTHS.map((length) => [length, []]));
+      [...new Set(rankedWords.slice(0, level.size))]
         .filter((word) => TURKISH_WORD_PATTERN.test(word))
         .filter((word) => REQUIRED_LENGTHS.includes(characterCount(word)))
-    );
+        .forEach((word) => pool.get(characterCount(word)).push(word));
+      wordPoolsByLevel.set(level.id, pool);
+    });
 
-    wordPool = new Map(REQUIRED_LENGTHS.map((length) => [length, []]));
-    uniqueWords.forEach((word) => wordPool.get(characterCount(word)).push(word));
-
-    const insufficient = REQUIRED_LENGTHS.filter((length) => wordPool.get(length).length < 2);
-    if (insufficient.length) {
-      const labels = insufficient.map((length) => `${length} harfli`).join(", ");
-      showFatalError(`Şu gruplarda en az iki geçerli kelime bulunmalı: ${labels}.`);
-      return;
+    for (const level of LEVELS) {
+      const pool = wordPoolsByLevel.get(level.id);
+      const neededLengths = [...new Set(level.lengths)];
+      const insufficient = neededLengths.filter((length) => pool.get(length).length < 2);
+      if (insufficient.length) {
+        showFatalError(`${level.label} seviyesi için yeterli kelime bulunamadı.`);
+        return;
+      }
     }
 
     derivationDictionary = [...new Set(
@@ -222,10 +271,18 @@ async function loadWords() {
 
 function showStartScreen() {
   clearAllTimers();
+  clearAnswerDeadline();
+  multiplayer = null;
+  gameSession = "single";
+  menuState = "home";
   elements.gameLayout.hidden = true;
   elements.endPanel.hidden = true;
   elements.errorPanel.hidden = true;
   elements.startPanel.hidden = false;
+  elements.difficultyPanel.hidden = true;
+  elements.multiplayerPanel.hidden = true;
+  elements.multiplayerResults.hidden = true;
+  setGameType("single");
   updateVoiceButton();
   if (voiceModeEnabled && speechRecognition) {
     setVoiceStatus(voiceCommandHint());
@@ -244,6 +301,96 @@ function showFatalError(message) {
   elements.errorPanel.hidden = false;
 }
 
+function currentLevelConfig() {
+  return LEVELS.find((level) => level.id === selectedLevel) ?? LEVELS[3];
+}
+
+function maxScoreForQuestions(questions) {
+  return questions.reduce(
+    (total, item) => total + (typeof item === "number" ? item : characterCount(item)) * 10,
+    0
+  );
+}
+
+function setGameType(type) {
+  gameSession = type === "multi" ? "multi" : "single";
+  const isMulti = gameSession === "multi";
+  elements.singlePlayerButton.classList.toggle("is-selected", !isMulti);
+  elements.singlePlayerButton.setAttribute("aria-pressed", String(!isMulti));
+  elements.multiPlayerButton.classList.toggle("is-selected", isMulti);
+  elements.multiPlayerButton.setAttribute("aria-pressed", String(isMulti));
+  elements.modeGrid.hidden = isMulti;
+  elements.multiplayerPanel.hidden = !isMulti;
+  elements.difficultyPanel.hidden = true;
+  menuState = isMulti ? "multiplayer" : "home";
+  updateMultiplayerLevelVisibility();
+}
+
+function showDifficultyChooser() {
+  menuState = "difficulty";
+  elements.difficultyPanel.hidden = false;
+  elements.multiplayerPanel.hidden = true;
+  elements.startUnscrambleButton.closest(".mode-grid").hidden = true;
+  setVoiceStatus(voiceCommandHint());
+  announce("Çöz modu. Birinci seviyeden beşinci seviyeye kadar bir seviye söyleyebilirsin.");
+  requestAnimationFrame(() => elements.levelGrid.querySelector("button").focus({ preventScroll: true }));
+}
+
+function hideDifficultyChooser() {
+  menuState = "home";
+  elements.difficultyPanel.hidden = true;
+  elements.startUnscrambleButton.closest(".mode-grid").hidden = false;
+  setVoiceStatus(voiceCommandHint());
+}
+
+function updateMultiplayerLevelVisibility() {
+  elements.multiplayerLevelOption.hidden = elements.multiplayerModeSelect.value !== "unscramble";
+}
+
+function addPlayerInput(value) {
+  const count = elements.playerInputs.children.length + 1;
+  if (count > MULTIPLAYER_BUZZ_KEYS.length) return;
+  const label = document.createElement("label");
+  label.append(`Oyuncu ${count} `);
+  const input = document.createElement("input");
+  input.className = "player-name-input";
+  input.type = "text";
+  input.maxLength = 18;
+  input.value = value || `Oyuncu ${count}`;
+  preparePlayerNameInput(input);
+  label.appendChild(input);
+  elements.playerInputs.appendChild(label);
+  elements.addPlayerButton.hidden = count >= MULTIPLAYER_BUZZ_KEYS.length;
+}
+
+function preparePlayerNameInput(input) {
+  input.addEventListener("focus", () => {
+    if (input.dataset.wasEdited === "true") return;
+    input.value = "";
+    input.dataset.wasEdited = "true";
+  });
+}
+
+function startMultiplayerFromSetup() {
+  const names = [...elements.playerInputs.querySelectorAll(".player-name-input")]
+    .map((input, index) => input.value.trim().slice(0, 18) || `Oyuncu ${index + 1}`);
+  if (names.length < 2) return;
+  gameSession = "multi";
+  selectedLevel = Number(elements.multiplayerLevelSelect.value);
+  multiplayer = {
+    players: names.map((name, index) => ({ name, score: 0, key: MULTIPLAYER_BUZZ_KEYS[index] })),
+    rounds: Number(elements.multiplayerRoundsSelect.value),
+    activePlayerIndex: 0,
+    lockedPlayerIndexes: new Set(),
+    buzzedPlayerIndex: null,
+    turnNumber: 0,
+    currentDerivationRound: 1,
+    turnsPerDerivationRound: names.length * MULTIPLAYER_DERIVATION_TURNS_PER_PLAYER
+  };
+  if (elements.multiplayerModeSelect.value === "derive") startDerivationGame();
+  else startUnscrambleGame();
+}
+
 function randomIndex(max) {
   if (globalThis.crypto?.getRandomValues) {
     const limit = Math.floor(0x100000000 / max) * max;
@@ -258,29 +405,34 @@ function takeRandom(items) {
   return items.splice(randomIndex(items.length), 1)[0];
 }
 
-function pickTwoWords(length) {
+function pickWords(length, count) {
   const all = [...wordPool.get(length)];
   const fresh = all.filter((word) => !previousGameWords.has(word));
   const chosen = [];
 
-  while (chosen.length < 2 && fresh.length) chosen.push(takeRandom(fresh));
+  while (chosen.length < count && fresh.length) chosen.push(takeRandom(fresh));
 
   const fallback = all.filter((word) => !chosen.includes(word));
-  while (chosen.length < 2) chosen.push(takeRandom(fallback));
+  while (chosen.length < count) chosen.push(takeRandom(fallback));
 
   return chosen;
 }
 
 function selectQuestions() {
+  const lengths = currentLevelConfig().lengths;
+  const counts = new Map();
+  lengths.forEach((length) => counts.set(length, (counts.get(length) ?? 0) + 1));
   const chosenByLength = new Map();
-  REQUIRED_LENGTHS.forEach((length) => chosenByLength.set(length, pickTwoWords(length)));
-  return GAME_LENGTHS.map((length) => chosenByLength.get(length).shift());
+  counts.forEach((count, length) => chosenByLength.set(length, pickWords(length, count)));
+  return lengths.map((length) => chosenByLength.get(length).shift());
 }
 
 function startUnscrambleGame() {
   stopVoiceRecognition();
   clearAllTimers();
+  clearAnswerDeadline();
   gameMode = "unscramble";
+  wordPool = wordPoolsByLevel.get(selectedLevel);
   questionToken += 1;
   totalScore = 0;
   currentQuestionIndex = 0;
@@ -293,15 +445,28 @@ function startUnscrambleGame() {
   elements.gameLayout.hidden = false;
   configureUnscrambleInterface();
 
-  selectedQuestions = selectQuestions();
-  previousGameWords = new Set(selectedQuestions);
+  previousGameWords = new Set();
+  const hands = gameSession === "multi" ? multiplayer.rounds : 1;
+  selectedQuestions = Array.from({ length: hands }, () => {
+    const questions = selectQuestions();
+    questions.forEach((word) => previousGameWords.add(word));
+    return questions;
+  }).flat();
+  elements.scoreMaximum.textContent = `/ ${maxScoreForQuestions(selectedQuestions)}`;
+  configureMultiplayerStatus();
   playSound("start");
+  announce(
+    gameSession === "multi"
+      ? `${multiplayer.players.length} oyuncu hazır. Çöz başlıyor. Zil tuşları ekranda görünüyor.`
+      : `${currentLevelConfig().label} seviyesi başladı.`
+  );
   startQuestion();
 }
 
 function showGameModeMenu() {
   stopVoiceRecognition();
   clearAllTimers();
+  clearAnswerDeadline();
   questionToken += 1;
   roundLocked = true;
   gameMode = null;
@@ -309,25 +474,28 @@ function showGameModeMenu() {
 }
 
 function startGameMode(mode) {
+  if (menuState === "multiplayer") return;
   if (mode === "derive") startDerivationGame();
-  else startUnscrambleGame();
+  else showDifficultyChooser();
 }
 
 function configureUnscrambleInterface() {
+  elements.feedbackMessage.after(elements.multiplayerStatus);
   elements.scoreLabel.textContent = "Toplam puan";
-  elements.scoreMaximum.textContent = "/ 900";
+  elements.scoreMaximum.textContent = `/ ${maxScoreForQuestions(currentLevelConfig().lengths)}`;
   elements.availableLabel.textContent = "Bu sorunun değeri";
   elements.availableUnit.textContent = "puan";
   elements.hintTitle.textContent = "Sıradaki ipucu";
   elements.hintDescription.textContent = "İlk harften başlayarak";
   elements.roundEyebrow.textContent = "Karışık harfler";
-  elements.roundHeading.textContent = "Çöz";
+  elements.roundHeading.textContent = gameSession === "multi" ? "Çöz · zil zamanı" : "Çöz";
   elements.answerLabel.textContent = "Cevabın";
   elements.answerInput.placeholder = "Kelimeyi buraya yaz";
   elements.checkButtonLabel.textContent = "Kontrol et";
   elements.hintCopy.textContent = "Her 5 saniyede bir harf doğru yerine yerleşir; sorunun değeri 10 puan azalır.";
   elements.keyboardHint.innerHTML = "<kbd>Enter</kbd> ile kontrol edebilirsin";
   elements.deriveFoundSection.hidden = true;
+  elements.passButton.hidden = false;
   elements.hintClock.classList.remove("is-derivation-timer");
   elements.hintClock.classList.remove("is-urgent");
 }
@@ -395,12 +563,9 @@ function startDerivationGame() {
   roundLocked = false;
   derivationScore = 0;
   derivationFoundWords = [];
-  derivationTimeLeft = DERIVATION_SECONDS;
-
-  const rack = createDerivationRack();
-  derivationLetters = rack.letters;
-  derivationValidWords = new Set(rack.words);
-  derivationLongestWordLength = Math.max(0, ...rack.words.map(characterCount));
+  derivationRounds = [];
+  derivationTimeLeft = gameSession === "multi" ? MULTIPLAYER_DERIVATION_SECONDS : DERIVATION_SECONDS;
+  prepareDerivationRack();
 
   elements.errorPanel.hidden = true;
   elements.startPanel.hidden = true;
@@ -410,6 +575,7 @@ function startDerivationGame() {
   renderLetters(derivationLetters);
   elements.answerInput.disabled = false;
   elements.checkButton.disabled = false;
+  elements.passButton.disabled = false;
   elements.voiceButton.disabled = !speechRecognition;
   elements.answerInput.value = "";
   elements.feedbackMessage.textContent = "";
@@ -417,8 +583,14 @@ function startDerivationGame() {
   elements.answerRow.classList.remove("is-wrong");
   elements.deriveFoundList.replaceChildren();
   elements.deriveFoundCount.textContent = "0";
+  configureMultiplayerStatus();
   updateDerivationInterface();
   playSound("start");
+  announce(gameSession === "multi" ? "Türet başlıyor. Her oyuncunun on turu var." : "Türet başladı.");
+  if (gameSession === "multi") {
+    startMultiplayerDerivationTurn();
+    return;
+  }
   scheduleVoiceRecognition(80);
   derivationTimer = window.setInterval(() => {
     derivationTimeLeft -= 1;
@@ -429,7 +601,17 @@ function startDerivationGame() {
   focusAnswerInput();
 }
 
+function prepareDerivationRack() {
+  const rack = createDerivationRack();
+  derivationLetters = rack.letters;
+  derivationValidWords = new Set(rack.words);
+  derivationLongestWordLength = Math.max(0, ...rack.words.map(characterCount));
+  derivationFoundWords = [];
+  derivationRounds.push({ validWords: rack.words, foundWords: derivationFoundWords });
+}
+
 function configureDerivationInterface() {
+  elements.derivationTurnSlot.append(elements.multiplayerStatus);
   elements.scoreLabel.textContent = "Puan";
   elements.questionCounter.textContent = "Süre";
   elements.scoreMaximum.textContent = "";
@@ -437,7 +619,9 @@ function configureDerivationInterface() {
   elements.availableUnit.textContent = "harf";
   elements.hintTitle.textContent = "Kalan süre";
   elements.hintDescription.textContent = "Süre bitmeden yaz";
-  elements.roundEyebrow.textContent = "10 harf";
+  elements.roundEyebrow.textContent = gameSession === "multi"
+    ? `10 harf · El ${multiplayer.currentDerivationRound} / ${multiplayer.rounds}`
+    : "10 harf";
   elements.roundHeading.textContent = "Türet";
   elements.wordLength.textContent = "10";
   elements.answerLabel.textContent = "Tahminin";
@@ -446,22 +630,186 @@ function configureDerivationInterface() {
   elements.hintCopy.textContent = "Bu 10 harfi kullanarak en az 4 harfli Türkçe kelimeler türet. En uzun kelimeler çift puan getirir.";
   elements.keyboardHint.innerHTML = "<kbd>Enter</kbd> ile kelimeyi ekleyebilirsin";
   elements.deriveFoundSection.hidden = false;
+  elements.passButton.hidden = gameSession !== "multi";
   elements.hintClock.classList.add("is-derivation-timer");
 }
 
 function updateDerivationInterface() {
   const longestFound = Math.max(0, ...derivationFoundWords.map(characterCount));
-  elements.totalScore.textContent = derivationScore;
+  elements.totalScore.textContent = gameSession === "multi"
+    ? multiplayer.players.reduce((total, player) => total + player.score, 0)
+    : derivationScore;
   elements.availableScore.textContent = longestFound || "—";
-  elements.progressFill.style.width = `${((DERIVATION_SECONDS - Math.max(0, derivationTimeLeft)) / DERIVATION_SECONDS) * 100}%`;
+  const totalTime = gameSession === "multi" ? MULTIPLAYER_DERIVATION_SECONDS : DERIVATION_SECONDS;
+  elements.progressFill.style.width = `${((totalTime - Math.max(0, derivationTimeLeft)) / totalTime) * 100}%`;
   elements.progressText.textContent = `${Math.max(0, derivationTimeLeft)} sn kaldı`;
   elements.countdownValue.textContent = Math.max(0, derivationTimeLeft);
   elements.hintClock.style.setProperty(
     "--timer-progress",
-    String((Math.max(0, derivationTimeLeft) / DERIVATION_SECONDS) * 100)
+    String((Math.max(0, derivationTimeLeft) / totalTime) * 100)
   );
   elements.hintClock.classList.toggle("is-urgent", derivationTimeLeft > 0 && derivationTimeLeft <= 10);
-  elements.footerDetail.innerHTML = `Bulunan: <strong>${derivationFoundWords.length} kelime</strong>`;
+  const totalFound = derivationRounds.reduce((total, round) => total + round.foundWords.length, 0);
+  elements.footerDetail.innerHTML = gameSession === "multi"
+    ? `Bu elde: <strong>${derivationFoundWords.length}</strong> · Toplam: <strong>${totalFound} kelime</strong>`
+    : `Bulunan: <strong>${derivationFoundWords.length} kelime</strong>`;
+}
+
+function clearAnswerDeadline() {
+  if (answerDeadlineTimer !== null) window.clearTimeout(answerDeadlineTimer);
+  answerDeadlineTimer = null;
+}
+
+function configureMultiplayerStatus() {
+  const isMulti = gameSession === "multi";
+  elements.multiplayerStatus.hidden = !isMulti;
+  if (!isMulti) return;
+  renderMultiplayerStatus();
+}
+
+function renderMultiplayerStatus(message) {
+  if (gameSession !== "multi" || !multiplayer) return;
+  const active = multiplayer.activePlayerIndex;
+  const hasActiveTurn = gameMode === "derive" || multiplayer.buzzedPlayerIndex !== null;
+  elements.multiplayerTurnLabel.textContent = message || (gameMode === "derive"
+    ? `Sıra: ${multiplayer.players[active].name}`
+    : multiplayer.buzzedPlayerIndex === null ? "Zile bas ve cevap hakkını al" : `${multiplayer.players[active].name} cevaplıyor`);
+  elements.multiplayerTurnLabel.classList.toggle("is-turn-active", hasActiveTurn);
+  elements.multiplayerRoundLabel.textContent = gameMode === "derive"
+    ? `El ${multiplayer.currentDerivationRound} / ${multiplayer.rounds} · Tur ${Math.floor(multiplayer.turnNumber / multiplayer.players.length) + 1} / ${MULTIPLAYER_DERIVATION_TURNS_PER_PLAYER}`
+    : `El ${Math.floor(currentQuestionIndex / currentLevelConfig().lengths.length) + 1} / ${multiplayer.rounds}`;
+  const fragment = document.createDocumentFragment();
+  multiplayer.players.forEach((player, index) => {
+    const tag = document.createElement("span");
+    tag.className = "player-score";
+    if (index === active && hasActiveTurn) tag.classList.add("is-active");
+    if (multiplayer.lockedPlayerIndexes.has(index)) tag.classList.add("is-locked");
+    tag.textContent = `${player.name} · ${player.score}`;
+    if (gameMode === "unscramble") {
+      const key = document.createElement("kbd");
+      key.textContent = player.key;
+      tag.appendChild(key);
+    }
+    fragment.appendChild(tag);
+  });
+  elements.playerScoreboard.replaceChildren(fragment);
+}
+
+function openMultiplayerBuzz(message = "Zile bas ve cevap hakkını al") {
+  if (gameSession !== "multi" || gameMode !== "unscramble" || roundLocked) return;
+  clearAnswerDeadline();
+  multiplayer.buzzedPlayerIndex = null;
+  elements.answerInput.disabled = true;
+  elements.checkButton.disabled = true;
+  elements.voiceButton.disabled = true;
+  elements.passButton.disabled = true;
+  renderMultiplayerStatus(message);
+}
+
+function claimMultiplayerBuzz(index) {
+  if (gameSession !== "multi" || gameMode !== "unscramble" || roundLocked) return;
+  if (multiplayer.buzzedPlayerIndex !== null || multiplayer.lockedPlayerIndexes.has(index)) return;
+  multiplayer.buzzedPlayerIndex = index;
+  multiplayer.activePlayerIndex = index;
+  elements.answerInput.disabled = false;
+  elements.checkButton.disabled = false;
+  elements.passButton.disabled = false;
+  elements.voiceButton.disabled = !speechRecognition;
+  elements.answerInput.value = "";
+  renderMultiplayerStatus(`${multiplayer.players[index].name} cevaplıyor · ${MULTIPLAYER_ANSWER_SECONDS} sn`);
+  playSound("turn");
+  announce(`${multiplayer.players[index].name}, cevap sende.`);
+  focusAnswerInput();
+  scheduleVoiceRecognition(120);
+  answerDeadlineTimer = window.setTimeout(() => {
+    if (multiplayer.buzzedPlayerIndex === index && !roundLocked) {
+      handleMultiplayerIncorrect("Süre doldu.");
+    }
+  }, MULTIPLAYER_ANSWER_SECONDS * 1000);
+}
+
+function handleMultiplayerIncorrect(message) {
+  const index = multiplayer.buzzedPlayerIndex;
+  clearAnswerDeadline();
+  stopVoiceRecognition();
+  if (index !== null) {
+    multiplayer.players[index].score = Math.max(0, multiplayer.players[index].score - 10);
+    multiplayer.lockedPlayerIndexes.add(index);
+  }
+  const remaining = multiplayer.players.some((_, playerIndex) => !multiplayer.lockedPlayerIndexes.has(playerIndex));
+  if (!remaining) {
+    handleFullyRevealed(selectedQuestions[currentQuestionIndex]);
+    return;
+  }
+  elements.feedbackMessage.textContent = `${message} Diğer oyuncular için zil yeniden açıldı.`;
+  elements.feedbackMessage.className = "feedback feedback--wrong";
+  openMultiplayerBuzz("Diğer oyuncuların zili açık");
+}
+
+function startMultiplayerDerivationTurn() {
+  if (!multiplayer) {
+    finishGame();
+    return;
+  }
+  if (multiplayer.turnNumber >= multiplayer.turnsPerDerivationRound) {
+    if (multiplayer.currentDerivationRound >= multiplayer.rounds) {
+      finishGame();
+      return;
+    }
+    startNextMultiplayerDerivationRound();
+    return;
+  }
+  clearAllTimers();
+  clearAnswerDeadline();
+  roundLocked = false;
+  multiplayer.activePlayerIndex = multiplayer.turnNumber % multiplayer.players.length;
+  derivationTimeLeft = MULTIPLAYER_DERIVATION_SECONDS;
+  elements.answerInput.disabled = false;
+  elements.checkButton.disabled = false;
+  elements.passButton.disabled = false;
+  elements.voiceButton.disabled = !speechRecognition;
+  elements.answerInput.value = "";
+  elements.feedbackMessage.textContent = "";
+  updateDerivationInterface();
+  renderMultiplayerStatus();
+  playSound("turn");
+  announce(`Sıra ${multiplayer.players[multiplayer.activePlayerIndex].name}de. Beş saniye.`);
+  scheduleVoiceRecognition(120);
+  derivationTimer = window.setInterval(() => {
+    derivationTimeLeft -= 1;
+    updateDerivationInterface();
+    if (derivationTimeLeft <= 0) advanceMultiplayerDerivationTurn("Süre doldu.");
+  }, 1000);
+  focusAnswerInput();
+}
+
+function startNextMultiplayerDerivationRound() {
+  clearAllTimers();
+  clearAnswerDeadline();
+  stopVoiceRecognition();
+  multiplayer.currentDerivationRound += 1;
+  multiplayer.turnNumber = 0;
+  questionToken += 1;
+  prepareDerivationRack();
+  renderLetters(derivationLetters);
+  elements.deriveFoundList.replaceChildren();
+  elements.deriveFoundCount.textContent = "0";
+  elements.feedbackMessage.textContent = "Yeni harf seti hazır.";
+  elements.feedbackMessage.className = "feedback feedback--revealed";
+  configureDerivationInterface();
+  updateDerivationInterface();
+  announce(`El ${multiplayer.currentDerivationRound} başladı. Yeni harfler hazır.`);
+  window.setTimeout(startMultiplayerDerivationTurn, 650);
+}
+
+function advanceMultiplayerDerivationTurn(message) {
+  if (gameSession !== "multi" || gameMode !== "derive") return;
+  clearAllTimers();
+  stopVoiceRecognition();
+  multiplayer.turnNumber += 1;
+  elements.feedbackMessage.textContent = message;
+  elements.feedbackMessage.className = "feedback feedback--revealed";
+  window.setTimeout(() => startMultiplayerDerivationTurn(), 600);
 }
 
 function shuffleWord(word) {
@@ -488,6 +836,10 @@ function startQuestion() {
   clearAllTimers();
   questionToken += 1;
   roundLocked = false;
+  if (gameSession === "multi" && multiplayer) {
+    multiplayer.lockedPlayerIndexes = new Set();
+    multiplayer.buzzedPlayerIndex = null;
+  }
   revealedLetterCount = 0;
   countdown = HINT_SECONDS;
 
@@ -507,7 +859,11 @@ function startQuestion() {
   renderLetters(characters);
   updateInterface();
   startHintTimers();
-  scheduleVoiceRecognition(80);
+  if (gameSession === "multi") {
+    openMultiplayerBuzz();
+  } else {
+    scheduleVoiceRecognition(80);
+  }
 
   focusAnswerInput();
 }
@@ -542,13 +898,15 @@ function updateInterface() {
   const available = Math.max(0, length * 10 - revealedLetterCount * 10);
   const completed = currentQuestionIndex;
 
-  elements.questionCounter.textContent = `Soru ${currentQuestionIndex + 1} / 12`;
-  elements.totalScore.textContent = totalScore;
+  elements.questionCounter.textContent = `Soru ${currentQuestionIndex + 1} / ${selectedQuestions.length}`;
+  elements.totalScore.textContent = gameSession === "multi"
+    ? multiplayer.players.reduce((total, player) => total + player.score, 0)
+    : totalScore;
   elements.availableScore.textContent = available;
   elements.wordLength.textContent = length;
   elements.revealedCount.textContent = `${revealedLetterCount} / ${length}`;
-  elements.progressFill.style.width = `${(completed / GAME_LENGTHS.length) * 100}%`;
-  elements.progressText.textContent = `${GAME_LENGTHS.length - completed} soru kaldı`;
+  elements.progressFill.style.width = `${(completed / selectedQuestions.length) * 100}%`;
+  elements.progressText.textContent = `${selectedQuestions.length - completed} soru kaldı`;
   elements.countdownValue.textContent = countdown;
 }
 
@@ -616,6 +974,7 @@ function handleFullyRevealed(word) {
   roundLocked = true;
   clearAllTimers();
   stopVoiceRecognition();
+  clearAnswerDeadline();
   elements.answerInput.disabled = true;
   elements.checkButton.disabled = true;
   elements.voiceButton.disabled = true;
@@ -683,6 +1042,10 @@ function checkAnswer(event) {
   const correctWord = selectedQuestions[currentQuestionIndex];
 
   if (!answer || answer !== correctWord) {
+    if (gameSession === "multi") {
+      handleMultiplayerIncorrect(answer ? "Yanlış cevap." : "Cevap gelmedi.");
+      return;
+    }
     elements.feedbackMessage.textContent = answer
       ? "Henüz değil — harflere bir kez daha bak."
       : "Önce bir cevap yazmalısın."
@@ -703,11 +1066,19 @@ function submitDerivationWord() {
   if (roundLocked || derivationTimeLeft <= 0) return;
   const word = normalizeTurkish(elements.answerInput.value);
   if (!word) {
+    if (gameSession === "multi") {
+      advanceMultiplayerDerivationTurn("Pas geçildi.");
+      return;
+    }
     elements.feedbackMessage.textContent = "Önce bir kelime yazmalısın.";
     elements.feedbackMessage.className = "feedback feedback--wrong";
     return;
   }
   if (characterCount(word) < DERIVATION_MIN_LENGTH) {
+    if (gameSession === "multi") {
+      showDerivationError("En az 4 harfli bir kelime gerekli.");
+      return;
+    }
     showDerivationError("En az 4 harfli bir kelime yazmalısın.");
     return;
   }
@@ -724,6 +1095,7 @@ function submitDerivationWord() {
   const points = characterCount(word) * 10 * (isLongest ? 2 : 1);
   derivationFoundWords.push(word);
   derivationScore += points;
+  if (gameSession === "multi") multiplayer.players[multiplayer.activePlayerIndex].score += points;
   const tag = document.createElement("span");
   tag.className = "derive-word-tag";
   tag.dataset.word = word;
@@ -737,6 +1109,10 @@ function submitDerivationWord() {
   elements.feedbackMessage.className = "feedback feedback--correct";
   playSound(isLongest ? "cheer" : "correct");
   updateDerivationInterface();
+  if (gameSession === "multi") {
+    renderMultiplayerStatus(`${multiplayer.players[multiplayer.activePlayerIndex].name} · +${points} puan`);
+    advanceMultiplayerDerivationTurn("Doğru kelime! Sıradaki oyuncuya geçiliyor.");
+  }
 }
 
 function showDerivationError(message) {
@@ -748,6 +1124,7 @@ function showDerivationError(message) {
   elements.answerInput.value = "";
   focusAnswerInput();
   playSound("wrong");
+  if (gameSession === "multi") advanceMultiplayerDerivationTurn(`${message} Sıradaki oyuncuya geçiliyor.`);
 }
 
 function showDerivationDuplicate(word) {
@@ -773,23 +1150,33 @@ function showDerivationDuplicate(word) {
   elements.answerInput.value = "";
   focusAnswerInput();
   playSound("duplicate");
+  if (gameSession === "multi") advanceMultiplayerDerivationTurn(`“${word}” zaten bulundu.`);
 }
 
 function handleCorrectAnswer(word) {
   roundLocked = true;
   stopVoiceRecognition();
   clearAllTimers();
+  clearAnswerDeadline();
   const earned = Math.max(0, characterCount(word) * 10 - revealedLetterCount * 10);
-  totalScore += earned;
-  elements.totalScore.textContent = totalScore;
+  if (gameSession === "multi") {
+    multiplayer.players[multiplayer.activePlayerIndex].score += earned;
+    renderMultiplayerStatus(`${multiplayer.players[multiplayer.activePlayerIndex].name} doğru bildi · +${earned}`);
+  } else {
+    totalScore += earned;
+  }
+  elements.totalScore.textContent = gameSession === "multi"
+    ? multiplayer.players.reduce((total, player) => total + player.score, 0)
+    : totalScore;
   elements.answerInput.disabled = true;
   elements.checkButton.disabled = true;
   elements.voiceButton.disabled = true;
   elements.answerInput.value = word;
   elements.answerInput.classList.add("is-correct-answer");
-  elements.feedbackMessage.textContent = `Doğru! +${earned} puan · ${word}`;
+  elements.feedbackMessage.textContent = `${gameSession === "multi" ? `${multiplayer.players[multiplayer.activePlayerIndex].name}: ` : ""}Doğru! +${earned} puan · ${word}`;
   elements.feedbackMessage.className = "feedback feedback--correct";
   playSound("correct");
+  announce(gameSession === "multi" ? `${multiplayer.players[multiplayer.activePlayerIndex].name} doğru bildi.` : "Doğru.");
 
   const tokenAtAnswer = questionToken;
   animateSolvedWord(word, tokenAtAnswer);
@@ -832,32 +1219,82 @@ function animateSolvedWord(word, tokenAtAnswer) {
 
 }
 
+function passCurrentRound() {
+  ensureAudioContext();
+  if (!gameMode) return;
+  if (gameMode === "derive") {
+    if (gameSession === "multi") advanceMultiplayerDerivationTurn("Pas geçildi.");
+    else {
+      elements.answerInput.value = "";
+      elements.feedbackMessage.textContent = "Türet modunda süre devam ediyor.";
+      elements.feedbackMessage.className = "feedback feedback--revealed";
+    }
+    return;
+  }
+  if (roundLocked) return;
+  if (gameSession === "multi" && multiplayer.buzzedPlayerIndex !== null) {
+    handleMultiplayerIncorrect("Pas geçildi.");
+    return;
+  }
+  const word = selectedQuestions[currentQuestionIndex];
+  roundLocked = true;
+  clearAllTimers();
+  clearAnswerDeadline();
+  stopVoiceRecognition();
+  elements.answerInput.disabled = true;
+  elements.checkButton.disabled = true;
+  elements.voiceButton.disabled = true;
+  elements.passButton.disabled = true;
+  elements.feedbackMessage.textContent = `Pas geçildi: ${word}. Sıradaki kelimeye geçiliyor…`;
+  elements.feedbackMessage.className = "feedback feedback--revealed";
+  announce(`Pas geçildi. Kelime ${word}.`);
+  const tokenAtPass = questionToken;
+  window.setTimeout(() => {
+    if (tokenAtPass !== questionToken) return;
+    currentQuestionIndex += 1;
+    if (currentQuestionIndex >= selectedQuestions.length) finishGame();
+    else startQuestion();
+  }, 1200);
+}
+
 function finishGame() {
   stopVoiceRecognition();
   clearAllTimers();
   questionToken += 1;
   roundLocked = true;
   const isDerivationGame = gameMode === "derive";
+  const derivationFoundTotal = derivationRounds.reduce((total, round) => total + round.foundWords.length, 0);
+  const derivationPossibleTotal = derivationRounds.reduce((total, round) => total + round.validWords.length, 0);
+  const derivationLongestFound = Math.max(
+    0,
+    ...derivationRounds.flatMap((round) => round.foundWords).map(characterCount)
+  );
   const rate = isDerivationGame
-    ? Math.min(100, Math.round((derivationFoundWords.length / Math.max(1, derivationValidWords.size)) * 100))
-    : Math.round((totalScore / MAX_SCORE) * 100);
+    ? Math.min(100, Math.round((derivationFoundTotal / Math.max(1, derivationPossibleTotal)) * 100))
+    : Math.round((totalScore / maxScoreForQuestions(selectedQuestions)) * 100);
 
   elements.gameLayout.hidden = true;
   elements.endPanel.hidden = false;
   elements.endPanel.classList.toggle("end-panel--derivation", isDerivationGame);
-  elements.finalScore.textContent = isDerivationGame ? derivationScore : totalScore;
-  elements.finalScoreSuffix.textContent = isDerivationGame ? "puan" : "/ 900 puan";
-  elements.endTitle.textContent = isDerivationGame ? "Süre doldu." : "12 kelimeyi de tamamladın.";
+  const multiplayerTotal = gameSession === "multi"
+    ? multiplayer.players.reduce((total, player) => total + player.score, 0)
+    : null;
+  elements.finalScore.textContent = gameSession === "multi" ? multiplayerTotal : isDerivationGame ? derivationScore : totalScore;
+  elements.finalScoreSuffix.textContent = gameSession === "multi" || isDerivationGame ? "puan" : `/ ${maxScoreForQuestions(selectedQuestions)} puan`;
+  elements.endTitle.textContent = gameSession === "multi" ? "Oyun tamamlandı." : isDerivationGame ? "Süre doldu." : `${selectedQuestions.length} kelimeyi de tamamladın.`;
   elements.endSummary.innerHTML = isDerivationGame
-    ? `Bulunan: <strong>${derivationFoundWords.length}</strong> · Kaçırılan: <strong>${Math.max(0, derivationValidWords.size - derivationFoundWords.length)}</strong> · Başarı: <strong>%${rate}</strong> · En uzun: <strong>${Math.max(0, ...derivationFoundWords.map(characterCount)) || "—"} harf</strong>`
-    : `Başarı oranı: <strong id="successRate">%${rate}</strong>`;
+    ? `Bulunan: <strong>${derivationFoundTotal}</strong> · Kaçırılan: <strong>${Math.max(0, derivationPossibleTotal - derivationFoundTotal)}</strong> · Başarı: <strong>%${rate}</strong> · En uzun: <strong>${derivationLongestFound || "—"} harf</strong>`
+    : gameSession === "multi" ? "Oyuncu puanları aşağıda." : `Başarı oranı: <strong id="successRate">%${rate}</strong>`;
   elements.deriveResults.hidden = !isDerivationGame;
   if (isDerivationGame) renderDerivationResults();
+  elements.multiplayerResults.hidden = gameSession !== "multi";
+  if (gameSession === "multi") renderMultiplayerResults();
   elements.resultMeterFill.style.width = "0%";
   requestAnimationFrame(() => {
     elements.resultMeterFill.style.width = `${rate}%`;
   });
   playSound("finish");
+  announce(gameSession === "multi" ? `${multiplayer.players.slice().sort((first, second) => second.score - first.score)[0].name} kazandı.` : "Oyun tamamlandı.");
   updateVoiceButton();
   if (voiceModeEnabled && speechRecognition) {
     setVoiceStatus(voiceCommandHint());
@@ -866,9 +1303,25 @@ function finishGame() {
   elements.playAgainButton.focus({ preventScroll: true });
 }
 
+function renderMultiplayerResults() {
+  const ranking = [...multiplayer.players].sort((first, second) => second.score - first.score || first.name.localeCompare(second.name, "tr-TR"));
+  const bestScore = ranking[0]?.score ?? 0;
+  const fragment = document.createDocumentFragment();
+  ranking.forEach((player, index) => {
+    const item = document.createElement("span");
+    item.className = "player-score";
+    if (player.score === bestScore) item.classList.add("is-winner");
+    item.textContent = `${index + 1}. ${player.name} · ${player.score} puan`;
+    fragment.appendChild(item);
+  });
+  elements.multiplayerResultsList.replaceChildren(fragment);
+}
+
 function renderDerivationResults() {
+  const allValidWords = derivationRounds.flatMap((round) => round.validWords);
+  const allFoundWords = new Set(derivationRounds.flatMap((round) => round.foundWords));
   const byLength = new Map();
-  [...derivationValidWords]
+  allValidWords
     .sort((first, second) => first.localeCompare(second, "tr-TR"))
     .forEach((word) => {
       const length = characterCount(word);
@@ -887,7 +1340,7 @@ function renderDerivationResults() {
 
     byLength.get(length).forEach((word) => {
       const item = document.createElement("span");
-      item.className = derivationFoundWords.includes(word)
+      item.className = allFoundWords.has(word)
         ? "derive-result-word is-found"
         : "derive-result-word is-missed";
       item.textContent = word;
@@ -1005,6 +1458,9 @@ function playSound(kind) {
   } else if (kind === "duplicate") {
     tone({ frequency: 390, endFrequency: 390, duration: 0.11, type: "square", gain: 0.028 });
     tone({ frequency: 390, endFrequency: 390, duration: 0.11, type: "square", gain: 0.028, delay: 0.15 });
+  } else if (kind === "turn") {
+    tone({ frequency: 520, endFrequency: 560, duration: 0.07, gain: 0.018 });
+    tone({ frequency: 660, endFrequency: 700, duration: 0.09, gain: 0.014, delay: 0.09 });
   } else if (kind === "finish") {
     [392, 523, 659].forEach((frequency, index) => {
       tone({ frequency, endFrequency: frequency * 1.04, duration: 0.24, gain: 0.038, delay: index * 0.12 });
@@ -1049,6 +1505,115 @@ function changeVolume(event) {
   updateSoundControls();
 }
 
+function loadAnnouncementPreference() {
+  try {
+    return window.localStorage.getItem("kelime-announcements") !== "disabled";
+  } catch (error) {
+    return true;
+  }
+}
+
+function updateAnnouncementControls() {
+  const voiceMissing = announcementVoiceAvailability === false;
+  elements.announcementButton.disabled = voiceMissing;
+  elements.announcementButton.setAttribute("aria-pressed", String(announcementEnabled));
+  elements.announcementButton.title = voiceMissing
+    ? "Bu cihazda Türkçe bir konuşma sesi bulunamadı."
+    : "Anonsları aç veya kapat";
+  elements.announcementLabel.textContent = voiceMissing
+    ? "Türkçe ses yok"
+    : announcementEnabled
+      ? "Anons açık"
+      : "Anons kapalı";
+  elements.announcementButton.querySelector(".sound-button__icon").textContent = voiceMissing
+    ? "!"
+    : announcementEnabled
+      ? "◌"
+      : "×";
+}
+
+function toggleAnnouncements() {
+  announcementEnabled = !announcementEnabled;
+  try {
+    window.localStorage.setItem("kelime-announcements", announcementEnabled ? "enabled" : "disabled");
+  } catch (error) {
+    console.debug("Anons tercihi kaydedilemedi.", error);
+  }
+  if (!announcementEnabled && "speechSynthesis" in window) window.speechSynthesis.cancel();
+  updateAnnouncementControls();
+}
+
+function findTurkishAnnouncementVoice() {
+  if (!("speechSynthesis" in window)) return null;
+
+  const voices = window.speechSynthesis.getVoices();
+  return (
+    voices.find((voice) => /^tr(?:[-_]|$)/iu.test(voice.lang)) ||
+    voices.find((voice) => /t[uü]rk/i.test(`${voice.name} ${voice.lang}`)) ||
+    null
+  );
+}
+
+function refreshAnnouncementVoice() {
+  if (!("speechSynthesis" in window)) {
+    announcementVoiceAvailability = false;
+    updateAnnouncementControls();
+    return;
+  }
+
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices.length) {
+    // Bazı tarayıcılar ses listesini ilk anda boş, biraz sonra dolu döndürür.
+    announcementVoiceAvailability = null;
+    updateAnnouncementControls();
+    return;
+  }
+
+  announcementVoice = findTurkishAnnouncementVoice();
+  announcementVoiceAvailability = Boolean(announcementVoice);
+  updateAnnouncementControls();
+}
+
+function setupAnnouncementVoice() {
+  if (!("speechSynthesis" in window)) {
+    refreshAnnouncementVoice();
+    return;
+  }
+
+  refreshAnnouncementVoice();
+  window.speechSynthesis.addEventListener("voiceschanged", refreshAnnouncementVoice);
+  window.setTimeout(refreshAnnouncementVoice, 250);
+}
+
+function announce(message) {
+  if (!announcementEnabled || !("speechSynthesis" in window) || !message) return;
+  announcementVoice = findTurkishAnnouncementVoice();
+  if (!announcementVoice) {
+    announcementVoiceAvailability = false;
+    updateAnnouncementControls();
+    if (voiceModeEnabled) scheduleVoiceRecognition(160);
+    return;
+  }
+
+  announcementVoiceAvailability = true;
+  const token = ++announcementToken;
+  stopVoiceRecognition();
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(message);
+  // `lang` tek başına yeterli değil: tarayıcı aksi halde varsayılan İngilizce
+  // sesi seçebiliyor. Türkçe sesi açıkça bağlamadan anons yapmıyoruz.
+  utterance.voice = announcementVoice;
+  utterance.lang = announcementVoice.lang || "tr-TR";
+  utterance.rate = 0.95;
+  utterance.onend = () => {
+    if (token === announcementToken && voiceModeEnabled) scheduleVoiceRecognition(160);
+  };
+  utterance.onerror = () => {
+    if (token === announcementToken && voiceModeEnabled) scheduleVoiceRecognition(160);
+  };
+  window.speechSynthesis.speak(utterance);
+}
+
 function normalizeSpokenWord(value) {
   return normalizeTurkish(value).replace(/[^A-ZÇĞİÖŞÜ]/gu, "");
 }
@@ -1063,14 +1628,44 @@ function normalizeSpokenCommand(value) {
     .replaceAll("Ü", "U");
 }
 
+function isSpokenPassCommand(value) {
+  // Tek başına "pas" bir kelimenin başlangıcı olabilir (ör. pasaport).
+  // Bu yüzden sesli komut için açıkça "pas geç" denmesini istiyoruz.
+  const words = normalizeTurkish(value)
+    .replace(/[^A-ZÇĞİÖŞÜ]+/gu, " ")
+    .trim()
+    .split(/\s+/u)
+    .filter(Boolean)
+    .map(normalizeSpokenCommand);
+
+  return words[0] === "PAS" && words[1]?.startsWith("GEC");
+}
+
 function gameModeFromSpokenCommand(value) {
   const command = normalizeSpokenCommand(value);
-  if (command === "TURET" || command.includes("KELIMETURET") || command.includes("TURETMEOYUNU")) return "derive";
-  if (command === "COZ" || command.includes("KELIMEBUL") || command.includes("KARISIKKELIME")) return "unscramble";
+  // Mobil tanıma çoğu zaman komutu "çözüm" veya "türetme" gibi eklerle
+  // döndürür. Başlangıç ekranında yalnızca iki geçerli komut olduğu için
+  // kök eşleşmesi burada güvenli ve daha affedicidir.
+  if (command.includes("TURET") || command.includes("KELIMETURET")) return "derive";
+  if (command.includes("COZ") || command.includes("KELIMEBUL") || command.includes("KARISIKKELIME")) return "unscramble";
   return null;
 }
 
+function levelFromSpokenCommand(value) {
+  const command = normalizeSpokenCommand(value);
+  const matches = [
+    [1, ["BIRINCI", "BIR", "ILK", "COCUK"]],
+    [2, ["IKINCI", "IKI", "BASLANGIC"]],
+    [3, ["UCUNCU", "UC", "ORTA"]],
+    [4, ["DORDUNCU", "DORT", "ILERI"]],
+    [5, ["BESINCI", "BES", "USTA"]]
+  ];
+  return matches.find(([, phrases]) => phrases.some((phrase) => command.includes(phrase)))?.[0] ?? null;
+}
+
 function voiceCommandHint() {
+  if (menuState === "difficulty") return "“Birinci seviye” ile “beşinci seviye” arasında seçim yapabilirsin";
+  if (menuState === "multiplayer") return "Oyuncuları hazırlayıp oyunu başlatabilirsin";
   return "“Çöz” veya “türet” diyebilirsin";
 }
 
@@ -1110,10 +1705,11 @@ function updateVoiceButton() {
   updateControl(elements.startVoiceButton, elements.startVoiceButtonLabel, "Sesli seçim", "Ses açık");
   updateControl(elements.endVoiceButton, elements.endVoiceButtonLabel, "Sesli seçim", "Ses açık");
 
-  const voiceOnlyOnTouch = voiceModeEnabled && usesTouchInput();
-  elements.answerInput.readOnly = voiceOnlyOnTouch;
-  elements.answerInput.inputMode = voiceOnlyOnTouch ? "none" : "text";
-  elements.answerInput.setAttribute("aria-readonly", String(voiceOnlyOnTouch));
+  elements.answerRow.classList.remove("is-voice-only");
+  elements.answerInput.readOnly = false;
+  elements.answerInput.inputMode = "text";
+  elements.answerInput.tabIndex = 0;
+  elements.answerInput.setAttribute("aria-readonly", "false");
 }
 
 function setVoiceStatus(message) {
@@ -1155,6 +1751,7 @@ function scheduleVoiceRecognition(delay = VOICE_RESTART_DELAY) {
   const canListenForStartCommand = !elements.startPanel.hidden || !elements.endPanel.hidden;
   const canListenInGame = !elements.gameLayout.hidden && !roundLocked;
   if (!voiceModeEnabled || !speechRecognition || (!canListenForStartCommand && !canListenInGame)) return;
+  if (window.speechSynthesis?.speaking) return;
 
   voiceRestartTimer = window.setTimeout(() => {
     voiceRestartTimer = null;
@@ -1200,10 +1797,10 @@ function setupSpeechRecognition() {
 
   speechRecognition = new SpeechRecognitionClass();
   speechRecognition.lang = "tr-TR";
-  // Tek bir kelime duyulduktan sonra da mikrofonu açık bırak. Böylece sonraki
-  // tahminde yeni bir oturum açılması beklenmez; yalnızca tarayıcı zorla
-  // kapatırsa onend içinden hemen yeniden başlatılır.
-  speechRecognition.continuous = true;
+  // Android'deki bazı Web Speech uygulamaları continuous modunda hiç sonuç
+  // üretmeyebiliyor. Mobilde her sonuçtan sonra hızlıca yeni oturum açmak,
+  // masaüstünde ise kesintisiz dinlemek daha güvenilir.
+  speechRecognition.continuous = !usesTouchInput();
   speechRecognition.interimResults = true;
   speechRecognition.maxAlternatives = 5;
   updateVoiceButton();
@@ -1233,11 +1830,19 @@ function setupSpeechRecognition() {
   speechRecognition.onresult = (event) => {
     if (voiceListeningContext === "command") {
       const result = event.results[event.resultIndex];
-      const selectedMode = Array.from({ length: result.length }, (_, index) =>
-        gameModeFromSpokenCommand(result[index].transcript)
-      ).find(Boolean);
+      const transcripts = Array.from({ length: result.length }, (_, index) => result[index].transcript);
+      const selectedLevelFromVoice = transcripts.map(levelFromSpokenCommand).find(Boolean);
+      if (menuState === "difficulty" && selectedLevelFromVoice) {
+        selectedLevel = selectedLevelFromVoice;
+        hideDifficultyChooser();
+        startUnscrambleGame();
+        return;
+      }
+      const selectedMode = transcripts.map(gameModeFromSpokenCommand).find(Boolean);
 
-      if (selectedMode && result.isFinal) {
+      // Başlangıç komutu duyulur duyulmaz oyunu aç. Bazı Android sürümleri
+      // sonucu "final" yapmadan oturumu kapatabiliyor.
+      if (selectedMode) {
         userHasInteracted = true;
         ensureAudioContext();
         startGameMode(selectedMode);
@@ -1247,15 +1852,23 @@ function setupSpeechRecognition() {
       return;
     }
 
-    if (voiceQuestionToken !== questionToken || roundLocked) return;
+    // Önceki kelimeyi gönderdikten sonra gecikmeli gelen sonuçlar ikinci kez
+    // işlenmesin. Bu özellikle Android'in ara/final sonuç sıralamasında olur.
+    if (!voiceListening || voiceQuestionToken !== questionToken || roundLocked) return;
     const result = event.results[event.resultIndex];
-    const alternatives = Array.from({ length: result.length }, (_, index) =>
-      normalizeSpokenWord(result[index].transcript)
-    ).filter(Boolean);
+    const transcripts = Array.from({ length: result.length }, (_, index) => result[index].transcript);
+    if (result.isFinal && transcripts.some(isSpokenPassCommand)) {
+      stopVoiceRecognition();
+      passCurrentRound();
+      return;
+    }
+    const alternatives = transcripts.map(normalizeSpokenWord).filter(Boolean);
     if (!alternatives.length) return;
 
     const bestCandidate = gameMode === "derive"
-      ? alternatives.find((candidate) => characterCount(candidate) >= DERIVATION_MIN_LENGTH) || alternatives[0]
+      ? alternatives.find((candidate) => derivationValidWords.has(candidate))
+        || alternatives.find((candidate) => characterCount(candidate) >= DERIVATION_MIN_LENGTH)
+        || alternatives[0]
       : (() => {
           const correctWord = selectedQuestions[currentQuestionIndex];
           const exactMatch = alternatives.find((candidate) => candidate === correctWord);
@@ -1268,8 +1881,11 @@ function setupSpeechRecognition() {
     elements.answerInput.value = bestCandidate;
     setVoiceStatus(`“${bestCandidate}” olarak duyuluyor…`);
 
-    // Ara sonuç yalnızca gösterilir; kullanıcı sözünü bitirdiğinde kesin sonuç denenir.
-    if (result.isFinal) submitSpokenGuess(bestCandidate);
+    // Türet modunda geçerli bir kelime ara sonuç olarak bile duyulduğunda
+    // hemen kaydet. Bazı Android tarayıcıları son "final" olayını hiç
+    // göndermeyebiliyor; sözlük doğrulaması yanlış/yarım kelimeyi engeller.
+    const isKnownDerivationWord = gameMode === "derive" && derivationValidWords.has(bestCandidate);
+    if (result.isFinal || isKnownDerivationWord) submitSpokenGuess(bestCandidate);
   };
 
   speechRecognition.onerror = (event) => {
@@ -1333,12 +1949,31 @@ elements.answerForm.addEventListener("submit", checkAnswer);
 elements.startUnscrambleButton.addEventListener("click", () => {
   userHasInteracted = true;
   ensureAudioContext();
-  startUnscrambleGame();
+  showDifficultyChooser();
 });
 elements.startDerivationButton.addEventListener("click", () => {
   userHasInteracted = true;
   ensureAudioContext();
   startDerivationGame();
+});
+elements.singlePlayerButton.addEventListener("click", () => setGameType("single"));
+elements.multiPlayerButton.addEventListener("click", () => setGameType("multi"));
+elements.backToModesButton.addEventListener("click", hideDifficultyChooser);
+elements.levelGrid.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-level]");
+  if (!button) return;
+  userHasInteracted = true;
+  selectedLevel = Number(button.dataset.level);
+  hideDifficultyChooser();
+  startUnscrambleGame();
+});
+elements.addPlayerButton.addEventListener("click", () => addPlayerInput());
+elements.playerInputs.querySelectorAll(".player-name-input").forEach(preparePlayerNameInput);
+elements.multiplayerModeSelect.addEventListener("change", updateMultiplayerLevelVisibility);
+elements.startMultiplayerButton.addEventListener("click", () => {
+  userHasInteracted = true;
+  ensureAudioContext();
+  startMultiplayerFromSetup();
 });
 elements.answerInput.addEventListener("keydown", (event) => {
   if (event.key !== "Enter") return;
@@ -1346,6 +1981,7 @@ elements.answerInput.addEventListener("keydown", (event) => {
   userHasInteracted = true;
   elements.answerForm.requestSubmit();
 });
+elements.passButton.addEventListener("click", passCurrentRound);
 elements.newGameButton.addEventListener("click", () => {
   userHasInteracted = true;
   ensureAudioContext();
@@ -1357,6 +1993,7 @@ elements.playAgainButton.addEventListener("click", () => {
   showGameModeMenu();
 });
 elements.soundButton.addEventListener("click", toggleSound);
+elements.announcementButton.addEventListener("click", toggleAnnouncements);
 elements.voiceButton.addEventListener("click", toggleVoiceMode);
 elements.startVoiceButton.addEventListener("click", toggleVoiceMode);
 elements.endVoiceButton.addEventListener("click", toggleVoiceMode);
@@ -1373,12 +2010,26 @@ document.addEventListener(
 );
 document.addEventListener(
   "keydown",
-  () => {
+  (event) => {
     userHasInteracted = true;
+    if (gameSession === "multi" && gameMode === "unscramble" && !roundLocked) {
+      const playerIndex = multiplayer?.players.findIndex((player) => player.key === event.key);
+      if (playerIndex >= 0) {
+        event.preventDefault();
+        claimMultiplayerBuzz(playerIndex);
+        return;
+      }
+    }
+    if (event.key.toLocaleLowerCase("tr-TR") === "p" && !elements.answerInput.matches(":focus")) {
+      event.preventDefault();
+      passCurrentRound();
+    }
   },
-  { once: true }
+  { passive: false }
 );
 
 updateSoundControls();
+updateAnnouncementControls();
+setupAnnouncementVoice();
 setupSpeechRecognition();
 loadWords();

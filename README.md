@@ -4,7 +4,7 @@
 
 ### Çöz · Türet · Söyle
 
-Karışık harfleri çözün veya on harften yeni kelimeler türetin. Türkçe odaklı, hızlı ve sesle de oynanabilen iki oyun bir arada.
+Karışık harfleri çözün veya on harften yeni kelimeler türetin. Türkçe odaklı, tek ya da aynı cihazda çok oyunculu oynanabilen iki oyun bir arada.
 
 ## [🎮 HEMEN OYNA](https://kavalmesut.github.io/harf_oyunu/)
 
@@ -31,6 +31,10 @@ Karışık harfleri çözün veya on harften yeni kelimeler türetin. Türkçe o
 - Tek ekranda iki farklı Türkçe kelime oyunu
 - Türkçe karakterler için doğru normalizasyon: `ç`, `ğ`, `ı`, `İ`, `ö`, `ş`, `ü`
 - Sürekli sesli oyun: mod seçimi ve kelime tahminleri eller serbest yapılabilir
+- **Çöz** için beş zorluk seviyesi: Çocuk (500 kelime, 5–8 harf) ile Usta (10.000 kelime, 5–10 harf) arasında seçim
+- Sesli veya görünür **Pas geç** seçeneği; oyun sırasında “pas geç” komutu kullanılabilir
+- İsteğe bağlı Türkçe oyun anonsları; mikrofon, anons sırasında kendi sesini dinlemez
+- Aynı cihazda 2–6 kişiyle çok oyunculu: Çöz'de zil tuşuyla yarış, Türet'te eşit sıralı turlar
 - **Çöz** modunda beş saniyede bir açılan sıralı harf ipucu animasyonu
 - **Türet** modunda çözülebilir kelimeler sunan dengeli 10 harflik raflar
 - Tekrar kelimelerde ayrı uyarı sesi ve görsel vurgulama
@@ -68,7 +72,9 @@ Ardından tarayıcıdan `http://localhost:8000` adresini açın.
 2. **“Çöz”** veya **“Türet”** diyerek oyun modunu seçin.
 3. Oyun sırasında kelimeyi söyleyin. Kesinleşen tahmin otomatik olarak denenir ve mikrofon sıradaki tahmin için yeniden dinlemeye geçer.
 
-Web Speech API desteği tarayıcıya göre değişir. Klavye ile oyun her zaman kullanılabilir; sesli tanıma bazı tarayıcılarda internet bağlantısı gerektirebilir.
+Çöz modunu seçtikten sonra **“birinci seviye”** ile **“beşinci seviye”** arasında sesle seçim yapabilirsiniz. Oyun sırasında **“pas geç”** demek o soruyu puansız atlar.
+
+Web Speech API desteği tarayıcıya göre değişir. Klavye ile oyun her zaman kullanılabilir; sesli tanıma bazı tarayıcılarda internet bağlantısı gerektirebilir. Anonslar yalnızca cihazda Türkçe bir konuşma sesi bulunduğunda çalışır; böylece varsayılan İngilizce sesin Türkçe metni yanlış telaffuz etmesi engellenir.
 
 ## Puanlama
 
@@ -99,15 +105,17 @@ harf_oyunu/
 ├── index.html                    # Uygulama arayüzü
 ├── style.css                     # Tasarım, düzen ve animasyonlar
 ├── script.js                     # Oyun, ses ve sesli tahmin mantığı
-├── turkce_kelime_listesi_sik_kulanilan_5000.txt # Çöz modunun sık kullanılan kelime havuzu
-├── turkce_kelime_listesi.txt     # Türet modunun Türkçe sözlüğü
+├── scripts/build_frequency_dictionaries.py # Çöz sözlüklerini yeniden üretir
 ├── assets/
 │   ├── harf-oyunu.png            # Ekran görüntüsü
 │   ├── cheering.wav              # En uzun kelime bonus sesi
 │   ├── correct.mp3
 │   ├── hint.mp3
 │   ├── start.mp3
-│   └── wrong.mp3
+│   ├── wrong.mp3
+│   └── dictionaries/
+│       ├── turkce_kelime_listesi.txt # Türet modunun ana sözlüğü
+│       └── turkce_kelime_listesi_sik_kullanilan_{500…10000}.txt # Çöz seviyeleri
 ├── Harf_Oyunu.desktop            # Linux başlatıcısı
 ├── Harf_Oyunu_Baslat.bat         # Windows başlatıcısı
 └── README.md
@@ -122,6 +130,26 @@ node --check script.js
 ```
 
 Oyun davranışını değiştirirken özellikle Türkçe karakter karşılaştırmasını, sesli modun ardışık dinlemesini, ipucu zamanlayıcılarını ve Türet modundaki harf sayısı doğrulamasını test edin.
+
+## Sözlükler
+
+Çöz listeleri kümülatiftir: birinci seviye ikinci seviyenin alt kümesidir. Sıralama, [wordfreq](https://github.com/rspeer/wordfreq) Türkçe frekans verisini ve önceki proje sıralamasını temel alır; adaylar ana sözlükte bulunmalıdır. Yer/kişi adları, sesle kolay karışan örnekler ve çocuk seviyesi için uygun olmayan bazı biçimler çıkarılır. Sözlükleri tam frekans verisiyle yeniden üretmek için `uv run --python 3.13 --with wordfreq python scripts/build_frequency_dictionaries.py` komutunu kullanın; araç yoksa betik altyazılardan türetilmiş [Türkçe 10K listesine](https://en.wiktionary.org/wiki/Wiktionary:Frequency_lists/Turkish_WordList_10K) geri döner.
+
+Türet modu seviye sözlüklerini kullanmaz: `assets/dictionaries/turkce_kelime_listesi.txt` içindeki tüm geçerli 4–10 harfli kelimelerle çalışır.
+
+## Yerel çok oyunculu mod
+
+Bu mod aynı cihazda oynayan **2–6 oyuncu** için çalışır. Başlangıç ekranında önce **Tek oyunculu** veya **Çok oyunculu** seçilir; çok oyunculuda oyuncu adları, oyun modu ve **1–4 el** sayısı belirlenir.
+
+- **Çöz: hızlı bas–cevapla.** Herkes aynı soruyu görür. İlk basan oyuncu cevap hakkını alır, adı/kartı yeşile döner ve 5 saniye içinde cevabını söyler. Doğru cevapta soru puanını alır; yanlış cevapta önceden belirlenen puanı kaybeder ve soru kalan oyunculara tekrar açılır.
+- Fiziksel klavye zilleri Oyuncu 1–6 için sırasıyla `1`–`6` tuşlarıdır. Aynı anda basmalarda ilk tarayıcı olayı kazanır.
+- **Türet: eşit sıralı tur.** 100 saniyelik serbest süre çok oyunculuda kullanılmaz. Her elde tüm oyuncular döngüyle kişi başı **10 tur** oynar. Her tur 5 saniyedir; el sayısı seçilirse, ilk harf setindeki tüm turlar tamamlandıktan sonra yeni bir harf seti açılır.
+- Türet turunda doğru, yanlış veya süresinde sessizlik doğrudan sonraki oyuncuya geçirir. Aynı kelime bir elde yalnızca bir oyuncu tarafından puanlanır; geçerli kelime puanı hemen o oyuncunun hanesine eklenir.
+- Her elin sonunda ve oyun sonunda oyuncu bazlı puan tablosu, tur/oyuncu ilerlemesi ve kazanan gösterilir.
+- Mikrofonun desteklenmediği veya tanımanın başarısız olduğu cihazlar için görünür bir “Pas geç” düğmesi ve yazılı tahmin yolu korunmalıdır. Bu, özellikle Android tablet ve iOS tarayıcıları için gereklidir.
+- Gelecek genişletme: büyük ekran/televizyon ana ekran olur; oyuncular telefonlarından bir oda koduyla bağlanır. Telefon, hem kendi zil düğmesi hem de mikrofon olur. Bu sürüm için cihazlar arasında ilk basanı güvenilir belirleyecek WebSocket/Firebase gibi gerçek zamanlı bir sunucu gerekir; yalnızca tarayıcı tarafıyla adil eşzamanlı yarış sağlanamaz.
+
+Çöz'de zili alan oyuncunun cevap için 5 saniyesi vardır; yanlış, pas veya süre sonunda 10 puan kaybeder ve o soruda tekrar zile basamaz. Türet'te her oyuncunun 5 saniyesi vardır; doğru, yanlış, pas veya süre sonunda sıra ilerler. Aynı Türet kelimesi bir elde yalnızca bir kez puanlanır. Aktif oyuncu ve oyun sonu kazananı anons edilir.
 
 ---
 

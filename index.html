@@ -39,6 +39,10 @@
             />
             <output id="volumeOutput" for="volumeSlider">%50</output>
           </label>
+          <button class="sound-button announcement-button" id="announcementButton" type="button" aria-pressed="true">
+            <span class="sound-button__icon" aria-hidden="true">◌</span>
+            <span id="announcementLabel">Anons açık</span>
+          </button>
           <button class="sound-button" id="soundButton" type="button" aria-pressed="false">
             <span class="sound-button__icon" aria-hidden="true">♪</span>
             <span id="soundLabel">Ses açık</span>
@@ -54,13 +58,18 @@
       <section class="start-panel glass" id="startPanel" hidden aria-label="Oyun modu seçimi">
         <div class="start-panel__content">
           <span class="eyebrow">İki oyun · tek sözlük</span>
+          <h1>Harflerle düşün,<br />kelimelerle oyna.</h1>
           <p>
             Karışık harfleri çözerek doğru kelimeyi bul veya aynı harflerden
             olabildiğince çok kelime türet.
           </p>
+          <div class="game-type-switch" role="group" aria-label="Oyuncu sayısı">
+            <button class="game-type-button is-selected" id="singlePlayerButton" type="button" aria-pressed="true">Tek oyunculu</button>
+            <button class="game-type-button" id="multiPlayerButton" type="button" aria-pressed="false">Çok oyunculu</button>
+          </div>
           <div class="mode-grid" aria-label="Oyun modu seçimi">
             <button class="mode-card mode-card--primary" id="startUnscrambleButton" type="button">
-              <span class="mode-card__eyebrow">12 soru · 900 puan</span>
+              <span class="mode-card__eyebrow">12 soru · seviyene göre puan</span>
               <strong>Çöz</strong>
               <span>Karışık verilen kelimeyi ipuçlarından önce çöz.</span>
             </button>
@@ -70,6 +79,41 @@
               <span>10 harften dört veya daha fazla harfli kelimeler üret.</span>
             </button>
           </div>
+          <section class="difficulty-panel" id="difficultyPanel" hidden aria-labelledby="difficultyTitle">
+            <button class="text-button" id="backToModesButton" type="button">← Oyun modları</button>
+            <span class="eyebrow">Çöz · zorluk seviyesi</span>
+            <h2 id="difficultyTitle">Bir seviye seç</h2>
+            <p>Sesli seçimde “birinci seviye” ile “beşinci seviye” diyebilirsin.</p>
+            <div class="level-grid" id="levelGrid">
+              <button class="level-card" type="button" data-level="1"><strong>1</strong><span>Çocuk</span><small>500 kelime · 5–8 harf</small></button>
+              <button class="level-card" type="button" data-level="2"><strong>2</strong><span>Başlangıç</span><small>1.000 kelime · 5–8 harf</small></button>
+              <button class="level-card" type="button" data-level="3"><strong>3</strong><span>Orta</span><small>2.000 kelime · 5–9 harf</small></button>
+              <button class="level-card" type="button" data-level="4"><strong>4</strong><span>İleri</span><small>5.000 kelime · 5–10 harf</small></button>
+              <button class="level-card" type="button" data-level="5"><strong>5</strong><span>Usta</span><small>10.000 kelime · 5–10 harf</small></button>
+            </div>
+          </section>
+          <section class="multiplayer-panel" id="multiplayerPanel" hidden aria-labelledby="multiplayerTitle">
+            <span class="eyebrow">Aynı cihazda birlikte oyna</span>
+            <h2 id="multiplayerTitle">Oyuncuları hazırla</h2>
+            <p>Çöz modunda herkes kendi zil tuşuyla yarışır; Türet'te her oyuncu, her elde 10 kez beşer saniyelik sıra alır.</p>
+            <div class="player-inputs" id="playerInputs">
+              <label>Oyuncu 1 <input class="player-name-input" type="text" value="Oyuncu 1" maxlength="18" /></label>
+              <label>Oyuncu 2 <input class="player-name-input" type="text" value="Oyuncu 2" maxlength="18" /></label>
+            </div>
+            <button class="text-button" id="addPlayerButton" type="button">+ Oyuncu ekle</button>
+            <div class="setup-options">
+              <label>Oyun modu
+                <select id="multiplayerModeSelect"><option value="unscramble">Çöz</option><option value="derive">Türet</option></select>
+              </label>
+              <label>El sayısı
+                <select id="multiplayerRoundsSelect"><option value="1">1 el</option><option value="2">2 el</option><option value="3">3 el</option><option value="4">4 el</option></select>
+              </label>
+              <label id="multiplayerLevelOption">Çöz seviyesi
+                <select id="multiplayerLevelSelect"><option value="1">1 · Çocuk</option><option value="2">2 · Başlangıç</option><option value="3">3 · Orta</option><option value="4" selected>4 · İleri</option><option value="5">5 · Usta</option></select>
+              </label>
+            </div>
+            <button class="button button--primary" id="startMultiplayerButton" type="button">Oyunu başlat <span aria-hidden="true">→</span></button>
+          </section>
           <div class="start-voice-control">
             <button
               class="voice-button"
@@ -156,12 +200,14 @@
             Her 5 saniyede bir harf doğru yerine yerleşir; sorunun değeri 10 puan azalır.
           </p>
 
+          <div class="derivation-turn-slot" id="derivationTurnSlot"></div>
+
           <form class="answer-form" id="answerForm" novalidate>
             <div class="answer-label-row">
               <label for="answerInput" id="answerLabel">Cevabın</label>
               <span class="voice-status" id="voiceStatus" aria-live="polite"></span>
             </div>
-            <div class="answer-row" id="answerRow">
+          <div class="answer-row" id="answerRow">
               <input
                 id="answerInput"
                 name="answer"
@@ -187,10 +233,19 @@
                 <span id="checkButtonLabel">Kontrol et</span>
                 <span aria-hidden="true">→</span>
               </button>
+              <button class="button button--pass" id="passButton" type="button">Pas geç</button>
             </div>
           </form>
 
           <div class="feedback" id="feedbackMessage" aria-live="assertive"></div>
+
+          <section class="multiplayer-status" id="multiplayerStatus" hidden aria-live="polite">
+            <div class="multiplayer-status__heading">
+              <span id="multiplayerTurnLabel">Oyuncular hazır</span>
+              <span id="multiplayerRoundLabel"></span>
+            </div>
+            <div class="player-scoreboard" id="playerScoreboard"></div>
+          </section>
 
           <section class="derive-found" id="deriveFoundSection" hidden aria-labelledby="deriveFoundTitle">
             <div class="derive-found__heading">
@@ -216,6 +271,10 @@
           <span id="resultMeterFill"></span>
         </div>
         <p class="end-panel__rate" id="endSummary">Başarı oranı: <strong id="successRate">%0</strong></p>
+        <section class="multiplayer-results" id="multiplayerResults" hidden aria-labelledby="multiplayerResultsTitle">
+          <h2 id="multiplayerResultsTitle">Skor tablosu</h2>
+          <div id="multiplayerResultsList"></div>
+        </section>
         <section class="derive-results" id="deriveResults" hidden aria-labelledby="deriveResultsTitle">
           <div class="derive-results__heading">
             <div>
@@ -248,6 +307,6 @@
       </section>
     </main>
 
-    <script src="script.js" defer></script>
+    <script src="script.js?v=multiplayer-levels-12" defer></script>
   </body>
 </html>
