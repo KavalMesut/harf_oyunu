@@ -1503,7 +1503,7 @@ function applyMasterVolume(immediate = false) {
   else masterGainNode.gain.setTargetAtTime(target, now, 0.025);
 }
 
-function tone({ frequency, endFrequency = frequency, duration = 0.12, type = "sine", gain = 0.065, delay = 0 }) {
+function tone({ frequency, endFrequency = frequency, duration = 0.12, type = "sine", gain = 0.065, delay = 0, peakGain = 0.35 }) {
   const context = ensureAudioContext();
   if (!context) return;
   const start = context.currentTime + delay;
@@ -1513,7 +1513,7 @@ function tone({ frequency, endFrequency = frequency, duration = 0.12, type = "si
   oscillator.frequency.setValueAtTime(frequency, start);
   oscillator.frequency.exponentialRampToValueAtTime(Math.max(1, endFrequency), start + duration);
   gainNode.gain.setValueAtTime(0.0001, start);
-  gainNode.gain.exponentialRampToValueAtTime(Math.min(gain * VOLUME_BOOST, 0.35), start + 0.018);
+  gainNode.gain.exponentialRampToValueAtTime(Math.min(gain * VOLUME_BOOST, peakGain), start + 0.018);
   gainNode.gain.exponentialRampToValueAtTime(0.0001, start + duration);
   oscillator.connect(gainNode).connect(masterGainNode);
   oscillator.start(start);
@@ -1576,8 +1576,8 @@ function playSound(kind) {
     tone({ frequency: 390, endFrequency: 390, duration: 0.11, type: "square", gain: 0.028 });
     tone({ frequency: 390, endFrequency: 390, duration: 0.11, type: "square", gain: 0.028, delay: 0.15 });
   } else if (kind === "turn") {
-    tone({ frequency: 520, endFrequency: 560, duration: 0.07, gain: 0.018 });
-    tone({ frequency: 660, endFrequency: 700, duration: 0.09, gain: 0.014, delay: 0.09 });
+    tone({ frequency: 520, endFrequency: 560, duration: 0.07, gain: 0.081, peakGain: 0.5 });
+    tone({ frequency: 660, endFrequency: 700, duration: 0.09, gain: 0.063, delay: 0.09, peakGain: 0.5 });
   } else if (kind === "finish") {
     [392, 523, 659].forEach((frequency, index) => {
       tone({ frequency, endFrequency: frequency * 1.04, duration: 0.24, gain: 0.038, delay: index * 0.12 });
