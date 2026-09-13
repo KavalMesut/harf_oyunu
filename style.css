@@ -89,6 +89,10 @@ button {
   width: min(1480px, calc(100% - 36px));
 }
 
+.app-shell:has(.game-layout.is-multiplayer:not([hidden])) {
+  width: min(1500px, calc(100% - 36px));
+}
+
 .topbar {
   display: flex;
   align-items: center;
@@ -534,6 +538,11 @@ button {
   animation: enter 650ms var(--ease) both;
 }
 
+.game-layout.is-multiplayer {
+  grid-template-columns: minmax(220px, 0.23fr) minmax(0, 0.57fr) minmax(220px, 0.2fr);
+  gap: clamp(14px, 1.5vw, 24px);
+}
+
 .score-card,
 .play-card {
   border-radius: 28px;
@@ -814,6 +823,10 @@ button {
   background: color-mix(in srgb, var(--cream) 94%, var(--blue));
 }
 
+.game-layout.is-multiplayer .play-card {
+  padding-inline: clamp(22px, 3vw, 44px);
+}
+
 .play-card .eyebrow {
   color: var(--red);
 }
@@ -857,8 +870,6 @@ button {
   flex-basis: 100%;
 }
 
-.derivation-turn-slot .player-scoreboard { justify-content: center; }
-
 .length-badge {
   padding: 10px 14px;
   white-space: nowrap;
@@ -874,17 +885,20 @@ button {
 
 .letter-stage {
   display: grid;
+  min-width: 0;
   min-height: 235px;
   place-items: center;
   margin: 24px 0 4px;
-  overflow: visible;
+  overflow: hidden;
   border-block: 1px solid color-mix(in srgb, var(--blue) 25%, transparent);
 }
 
 .letters {
-  display: flex;
+  display: grid;
   width: min(100%, 820px);
-  gap: clamp(4px, 1vw, 12px);
+  min-width: 0;
+  grid-template-columns: repeat(var(--letter-count, 10), minmax(0, 72px));
+  gap: clamp(4px, 0.7vw, 10px);
   align-items: center;
   justify-content: center;
   padding: 42px 0;
@@ -892,10 +906,10 @@ button {
 
 .letter-tile {
   display: grid;
-  width: 72px;
+  width: 100%;
+  max-width: 72px;
   min-width: 0;
   aspect-ratio: 0.88;
-  flex: 0 1 72px;
   place-items: center;
   border: 1px solid color-mix(in srgb, var(--blue) 78%, var(--cream));
   border-radius: clamp(10px, 1.5vw, 15px);
@@ -1191,6 +1205,12 @@ button {
   letter-spacing: 0.1em;
 }
 
+.multiplayer-answer-countdown.is-grace span {
+  background: var(--blue);
+}
+
+.multiplayer-answer-countdown.is-grace small { color: var(--blue); }
+
 .multiplayer-answer-countdown.is-ticking span {
   animation: multiplayerCountdownTick 820ms cubic-bezier(0.2, 0.8, 0.25, 1);
 }
@@ -1210,46 +1230,189 @@ button {
 }
 
 .player-score {
-  display: inline-flex;
-  gap: 7px;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 5px 10px;
   align-items: center;
-  padding: 7px 10px;
-  border-radius: 999px;
+  width: 100%;
+  padding: 15px;
+  border: 1px solid color-mix(in srgb, var(--blue) 23%, transparent);
+  border-radius: 15px;
   color: var(--green-deep);
-  background: color-mix(in srgb, var(--blue) 18%, transparent);
-  font-size: 0.74rem;
+  background: color-mix(in srgb, var(--cream) 72%, var(--blue));
+  font-size: 0.82rem;
   font-weight: 800;
+  transition: color 180ms ease, background 180ms ease, box-shadow 180ms ease;
 }
 
 .player-score.is-active {
-  padding: 10px 14px;
   color: var(--cream);
   background: var(--green);
-  box-shadow: 0 5px 14px color-mix(in srgb, var(--green-deep) 27%, transparent);
-  font-size: 0.88rem;
-  transform: translateY(-2px);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--green-deep) 30%, transparent);
 }
 .player-score.is-locked { opacity: 0.45; text-decoration: line-through; }
-.player-score kbd { padding: 1px 4px; font-size: 0.64rem; }
+.player-score kbd {
+  grid-column: 2;
+  justify-self: start;
+  padding: 3px 7px;
+  font-size: 0.65rem;
+}
+
+.player-score__rank {
+  display: grid;
+  grid-row: 1 / span 2;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--cream);
+  background: var(--green-deep);
+  font-size: 0.8rem;
+}
+
+.player-score__name {
+  overflow-wrap: anywhere;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.15rem, 2vw, 1.5rem);
+  line-height: 1.05;
+}
+
+.player-score__points {
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.player-score.is-active .player-score__rank {
+  color: var(--green-deep);
+  background: var(--gold);
+}
 
 @keyframes playerTurnArrival {
   from { opacity: 0.35; transform: translateY(5px) scale(0.97); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+.live-leaderboard {
+  position: sticky;
+  top: 22px;
+  align-self: start;
+  min-width: 0;
+  padding: 25px 20px;
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--cream) 88%, var(--blue));
+}
+
+.live-leaderboard .eyebrow { color: var(--red); }
+
+.live-leaderboard h2 {
+  margin: 7px 0 18px;
+  color: var(--green-deep);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.6rem, 2.6vw, 2.15rem);
+  font-weight: 500;
+}
+
+.live-leaderboard .player-scoreboard {
+  display: grid;
+  gap: 11px;
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .game-layout.is-multiplayer {
+    grid-template-columns: minmax(245px, 0.3fr) minmax(0, 0.7fr);
+  }
+
+  .game-layout.is-multiplayer .live-leaderboard {
+    position: static;
+    grid-column: 1 / -1;
+  }
+
+  .live-leaderboard .player-scoreboard {
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  }
+}
+
 .multiplayer-results {
-  width: min(520px, 100%);
+  width: min(780px, 100%);
   margin: 28px auto;
-  padding: 20px;
+  padding: clamp(20px, 3vw, 30px);
   border: 1px solid color-mix(in srgb, var(--cream) 16%, transparent);
   border-radius: 16px;
   background: color-mix(in srgb, var(--green-deep) 36%, transparent);
 }
 
-.multiplayer-results h2 { margin: 0; color: var(--cream); font-family: Georgia, "Times New Roman", serif; font-weight: 500; }
+.multiplayer-results h2 {
+  margin: 0;
+  color: var(--cream);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.65rem, 3vw, 2.25rem);
+  font-weight: 500;
+}
 
-.multiplayer-results .player-score { color: var(--cream); background: color-mix(in srgb, var(--blue) 50%, var(--green-deep)); }
-.multiplayer-results .player-score.is-winner { color: var(--green-deep); background: var(--gold); }
+#multiplayerResultsList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.multiplayer-result-card {
+  display: grid;
+  gap: 8px;
+  min-height: 190px;
+  padding: 22px;
+  border: 1px solid color-mix(in srgb, var(--cream) 18%, transparent);
+  border-radius: 18px;
+  color: var(--cream);
+  background: color-mix(in srgb, var(--blue) 48%, var(--green-deep));
+  text-align: left;
+  animation: resultCardArrival 420ms ease both;
+}
+
+.multiplayer-result-card.is-winner {
+  border-color: color-mix(in srgb, var(--gold) 80%, white);
+  color: var(--green-deep);
+  background: var(--gold);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--gold) 24%, transparent);
+}
+
+.multiplayer-result-card__rank {
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.13em;
+}
+
+.multiplayer-result-card__name {
+  overflow-wrap: anywhere;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.55rem, 3.5vw, 2.35rem);
+  line-height: 1.05;
+}
+
+.multiplayer-result-card__score {
+  display: flex;
+  gap: 9px;
+  align-items: baseline;
+  margin-top: auto;
+}
+
+.multiplayer-result-card__score strong {
+  font-size: clamp(2.5rem, 6vw, 4rem);
+  font-variant-numeric: tabular-nums;
+  line-height: 0.9;
+}
+
+.multiplayer-result-card__score small {
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+
+@keyframes resultCardArrival {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
 
 .derive-found {
   margin-top: 4px;
@@ -1562,6 +1725,8 @@ kbd {
   .game-layout {
     grid-template-columns: 1fr;
   }
+
+  .game-layout.is-multiplayer { grid-template-columns: 1fr; }
 
   .score-card {
     min-height: auto;

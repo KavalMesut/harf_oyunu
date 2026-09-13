@@ -9,7 +9,7 @@
       content="Karışık Türkçe kelimeleri ipuçları tükenmeden bulduğunuz, 12 soruluk kelime oyunu."
     />
     <title>Harf Oyunu · Türkçe kelime oyunları</title>
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="style.css?v=letter-layout-1" />
   </head>
   <body>
     <div class="ambient ambient--one" aria-hidden="true"></div>
@@ -246,9 +246,8 @@
             </div>
             <div class="multiplayer-answer-countdown" id="multiplayerAnswerCountdown" hidden aria-live="assertive">
               <span id="multiplayerAnswerSeconds">3</span>
-              <small>CEVAP SÜRESİ</small>
+              <small id="multiplayerAnswerCaption">CEVAP SÜRESİ</small>
             </div>
-            <div class="player-scoreboard" id="playerScoreboard"></div>
           </section>
 
           <section class="derive-found" id="deriveFoundSection" hidden aria-labelledby="deriveFoundTitle">
@@ -264,6 +263,12 @@
             <span id="footerDetail">İpucu: <strong id="revealedCount">0 / 5</strong></span>
           </footer>
         </section>
+
+        <aside class="live-leaderboard glass" id="liveLeaderboard" hidden aria-labelledby="liveLeaderboardTitle">
+          <span class="eyebrow">Canlı skor</span>
+          <h2 id="liveLeaderboardTitle">Sıralama</h2>
+          <div class="player-scoreboard" id="playerScoreboard"></div>
+        </aside>
       </section>
 
       <section class="end-panel glass" id="endPanel" hidden aria-live="polite">
@@ -311,6 +316,6 @@
       </section>
     </main>
 
-    <script src="script.js?v=multiplayer-levels-16" defer></script>
+    <script src="script.js?v=multiplayer-levels-26" defer></script>
   </body>
 </html>

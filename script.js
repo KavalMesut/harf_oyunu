@@ -36,6 +36,7 @@ const DERIVATION_FREQUENCIES = {
   F: 0.84, Ö: 0.78, Ü: 0.69, Ğ: 0.68, J: 0.25
 };
 const RECORDED_SOUND_SOURCES = {
+  buzz: "assets/buzz.mp3?v=trimmed-1",
   cheer: "assets/cheering.wav",
   correct: "assets/correct.mp3",
   hint: "assets/hint.mp3",
@@ -43,6 +44,7 @@ const RECORDED_SOUND_SOURCES = {
   wrong: "assets/wrong.mp3"
 };
 const RECORDED_SOUND_LEVELS = {
+  buzz: 1.26,
   cheer: 0.55,
   correct: 0.45,
   hint: 1.875,
@@ -50,6 +52,7 @@ const RECORDED_SOUND_LEVELS = {
   wrong: 0.9
 };
 const RECORDED_SOUND_BOOSTS = {
+  buzz: 1,
   cheer: 1,
   correct: 1,
   hint: 1.5,
@@ -72,6 +75,7 @@ let multiplayer = null;
 let answerDeadlineTimer = null;
 let answerCountdownTimer = null;
 let multiplayerAnswerSecondsLeft = 0;
+let multiplayerVoiceDetected = false;
 let revealedLetterCount = 0;
 let currentQuestionTimer = null;
 let countdownTimer = null;
@@ -170,6 +174,8 @@ const elements = {
   multiplayerRoundLabel: document.querySelector("#multiplayerRoundLabel"),
   multiplayerAnswerCountdown: document.querySelector("#multiplayerAnswerCountdown"),
   multiplayerAnswerSeconds: document.querySelector("#multiplayerAnswerSeconds"),
+  multiplayerAnswerCaption: document.querySelector("#multiplayerAnswerCaption"),
+  liveLeaderboard: document.querySelector("#liveLeaderboard"),
   playerScoreboard: document.querySelector("#playerScoreboard"),
   deriveFoundSection: document.querySelector("#deriveFoundSection"),
   deriveFoundCount: document.querySelector("#deriveFoundCount"),
@@ -680,7 +686,10 @@ function clearAnswerDeadline() {
   answerDeadlineTimer = null;
   answerCountdownTimer = null;
   multiplayerAnswerSecondsLeft = 0;
+  multiplayerVoiceDetected = false;
   elements.multiplayerAnswerCountdown.hidden = true;
+  elements.multiplayerAnswerCountdown.classList.remove("is-grace");
+  elements.multiplayerAnswerCaption.textContent = "CEVAP SÜRESİ";
 }
 
 function renderMultiplayerAnswerCountdown() {
@@ -691,9 +700,24 @@ function renderMultiplayerAnswerCountdown() {
   elements.multiplayerAnswerCountdown.classList.add("is-ticking");
 }
 
+function handleMultiplayerAnswerDeadline(index) {
+  if (multiplayer.buzzedPlayerIndex !== index || roundLocked) return;
+  if (multiplayerVoiceDetected) {
+    if (answerCountdownTimer !== null) window.clearInterval(answerCountdownTimer);
+    answerCountdownTimer = null;
+    elements.multiplayerAnswerSeconds.textContent = "…";
+    elements.multiplayerAnswerCaption.textContent = "DİKTE TAMAMLANIYOR";
+    elements.multiplayerAnswerCountdown.classList.add("is-grace");
+    return;
+  }
+  handleMultiplayerIncorrect("Süre doldu.");
+}
+
 function configureMultiplayerStatus() {
   const isMulti = gameSession === "multi";
   elements.multiplayerStatus.hidden = !isMulti;
+  elements.liveLeaderboard.hidden = !isMulti;
+  elements.gameLayout.classList.toggle("is-multiplayer", isMulti);
   if (!isMulti) return;
   renderMultiplayerStatus();
 }
@@ -711,13 +735,32 @@ function renderMultiplayerStatus(message) {
   elements.multiplayerRoundLabel.textContent = gameMode === "derive"
     ? `El ${multiplayer.currentDerivationRound} / ${multiplayer.rounds} · Tur ${Math.floor(multiplayer.turnNumber / multiplayer.players.length) + 1} / ${MULTIPLAYER_DERIVATION_TURNS_PER_PLAYER}`
     : `El ${Math.floor(currentQuestionIndex / currentLevelConfig().lengths.length) + 1} / ${multiplayer.rounds}`;
+  const oldPositions = new Map(
+    [...elements.playerScoreboard.children].map((tag) => [tag.dataset.playerIndex, tag.getBoundingClientRect()])
+  );
+  const existingTags = new Map(
+    [...elements.playerScoreboard.children].map((tag) => [tag.dataset.playerIndex, tag])
+  );
+  const ranking = multiplayer.players
+    .map((player, index) => ({ player, index }))
+    .sort((first, second) => second.player.score - first.player.score || first.index - second.index);
   const fragment = document.createDocumentFragment();
-  multiplayer.players.forEach((player, index) => {
-    const tag = document.createElement("span");
+  ranking.forEach(({ player, index }, rankIndex) => {
+    const tag = existingTags.get(String(index)) || document.createElement("article");
     tag.className = "player-score";
+    tag.dataset.playerIndex = String(index);
     if (index === active && hasActiveTurn) tag.classList.add("is-active");
     if (multiplayer.lockedPlayerIndexes.has(index)) tag.classList.add("is-locked");
-    tag.textContent = `${player.name} · ${player.score}`;
+    const rank = document.createElement("span");
+    rank.className = "player-score__rank";
+    rank.textContent = `${rankIndex + 1}`;
+    const name = document.createElement("strong");
+    name.className = "player-score__name";
+    name.textContent = player.name;
+    const score = document.createElement("strong");
+    score.className = "player-score__points";
+    score.textContent = `${player.score} puan`;
+    tag.replaceChildren(rank, name, score);
     if (gameMode === "unscramble") {
       const key = document.createElement("kbd");
       key.textContent = player.buzzButton.label;
@@ -726,6 +769,23 @@ function renderMultiplayerStatus(message) {
     fragment.appendChild(tag);
   });
   elements.playerScoreboard.replaceChildren(fragment);
+  requestAnimationFrame(() => {
+    [...elements.playerScoreboard.children].forEach((tag) => {
+      const first = oldPositions.get(tag.dataset.playerIndex);
+      if (!first) return;
+      const last = tag.getBoundingClientRect();
+      const deltaX = first.left - last.left;
+      const deltaY = first.top - last.top;
+      if (!deltaX && !deltaY) return;
+      tag.animate(
+        [
+          { transform: `translate(${deltaX}px, ${deltaY}px)`, zIndex: 2 },
+          { transform: "translate(0, 0)", zIndex: 1 }
+        ],
+        { duration: 420, easing: "cubic-bezier(0.2, 0.82, 0.24, 1)" }
+      );
+    });
+  });
 }
 
 function openMultiplayerBuzz(message = "Zile bas ve cevap hakkını al") {
@@ -754,6 +814,7 @@ function claimMultiplayerBuzz(index) {
   announce(`${multiplayer.players[index].name}, cevap sende.`);
   focusAnswerInput();
   multiplayerAnswerSecondsLeft = MULTIPLAYER_ANSWER_SECONDS;
+  multiplayerVoiceDetected = false;
   renderMultiplayerAnswerCountdown();
   answerCountdownTimer = window.setInterval(() => {
     multiplayerAnswerSecondsLeft -= 1;
@@ -761,9 +822,7 @@ function claimMultiplayerBuzz(index) {
   }, 1000);
   scheduleVoiceRecognition(120);
   answerDeadlineTimer = window.setTimeout(() => {
-    if (multiplayer.buzzedPlayerIndex === index && !roundLocked) {
-      handleMultiplayerIncorrect("Süre doldu.");
-    }
+    handleMultiplayerAnswerDeadline(index);
   }, MULTIPLAYER_ANSWER_SECONDS * 1000);
 }
 
@@ -1350,10 +1409,24 @@ function renderMultiplayerResults() {
   const bestScore = ranking[0]?.score ?? 0;
   const fragment = document.createDocumentFragment();
   ranking.forEach((player, index) => {
-    const item = document.createElement("span");
-    item.className = "player-score";
+    const item = document.createElement("article");
+    item.className = "multiplayer-result-card";
     if (player.score === bestScore) item.classList.add("is-winner");
-    item.textContent = `${index + 1}. ${player.name} · ${player.score} puan`;
+    item.setAttribute("aria-label", `${index + 1}. ${player.name}, ${player.score} puan`);
+
+    const rank = document.createElement("span");
+    rank.className = "multiplayer-result-card__rank";
+    rank.textContent = player.score === bestScore ? "KAZANAN" : `${index + 1}. SIRA`;
+
+    const name = document.createElement("strong");
+    name.className = "multiplayer-result-card__name";
+    name.textContent = player.name;
+
+    const score = document.createElement("span");
+    score.className = "multiplayer-result-card__score";
+    score.innerHTML = `<strong>${player.score}</strong><small>PUAN</small>`;
+
+    item.append(rank, name, score);
     fragment.appendChild(item);
   });
   elements.multiplayerResultsList.replaceChildren(fragment);
@@ -1487,7 +1560,9 @@ function playRecordedSound(kind) {
 
 function playSound(kind) {
   if (!soundEnabled) return;
-  if (kind === "cheer") {
+  if (kind === "buzz") {
+    playRecordedSound("buzz");
+  } else if (kind === "cheer") {
     playRecordedSound("cheer");
   } else if (kind === "correct") {
     playRecordedSound("correct");
@@ -1503,11 +1578,6 @@ function playSound(kind) {
   } else if (kind === "turn") {
     tone({ frequency: 520, endFrequency: 560, duration: 0.07, gain: 0.018 });
     tone({ frequency: 660, endFrequency: 700, duration: 0.09, gain: 0.014, delay: 0.09 });
-  } else if (kind === "buzz") {
-    // Kısa, tok bir basış ve ardından parlak bir oyun-programı zili.
-    // Bilinen bir programın sesini örneklemek yerine sentezlenmiş özgün tonlar.
-    tone({ frequency: 160, endFrequency: 96, duration: 0.075, type: "triangle", gain: 0.04 });
-    tone({ frequency: 760, endFrequency: 590, duration: 0.12, type: "sine", gain: 0.026, delay: 0.035 });
   } else if (kind === "finish") {
     [392, 523, 659].forEach((frequency, index) => {
       tone({ frequency, endFrequency: frequency * 1.04, duration: 0.24, gain: 0.038, delay: index * 0.12 });
@@ -1871,6 +1941,9 @@ function setupSpeechRecognition() {
   speechRecognition.onspeechstart = () => {
     if (voiceListeningContext === "game" && !roundLocked) {
       setVoiceStatus("Seni duydum, çözümlüyorum…");
+      if (gameSession === "multi" && gameMode === "unscramble" && multiplayer?.buzzedPlayerIndex !== null) {
+        multiplayerVoiceDetected = true;
+      }
     }
   };
 
@@ -1930,9 +2003,12 @@ function setupSpeechRecognition() {
 
     // Türet modunda geçerli bir kelime ara sonuç olarak bile duyulduğunda
     // hemen kaydet. Bazı Android tarayıcıları son "final" olayını hiç
-    // göndermeyebiliyor; sözlük doğrulaması yanlış/yarım kelimeyi engeller.
+    // göndermeyebiliyor. Çöz'de de hedef kelime ara sonuçta birebir duyulduysa
+    // beklemeden gönder; böylece süre, zaten anlaşılmış doğru yanıtı kesmez.
     const isKnownDerivationWord = gameMode === "derive" && derivationValidWords.has(bestCandidate);
-    if (result.isFinal || isKnownDerivationWord) submitSpokenGuess(bestCandidate);
+    const isKnownUnscrambleAnswer = gameMode === "unscramble"
+      && bestCandidate === selectedQuestions[currentQuestionIndex];
+    if (result.isFinal || isKnownDerivationWord || isKnownUnscrambleAnswer) submitSpokenGuess(bestCandidate);
   };
 
   speechRecognition.onerror = (event) => {

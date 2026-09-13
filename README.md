@@ -108,6 +108,7 @@ harf_oyunu/
 ├── scripts/build_frequency_dictionaries.py # Çöz sözlüklerini yeniden üretir
 ├── assets/
 │   ├── harf-oyunu.png            # Ekran görüntüsü
+│   ├── buzz.mp3                  # Çok oyunculu zil sesi
 │   ├── cheering.wav              # En uzun kelime bonus sesi
 │   ├── correct.mp3
 │   ├── hint.mp3
@@ -141,7 +142,8 @@ Türet modu seviye sözlüklerini kullanmaz: `assets/dictionaries/turkce_kelime_
 
 Bu mod aynı cihazda oynayan **2–6 oyuncu** için çalışır. Başlangıç ekranında önce **Tek oyunculu** veya **Çok oyunculu** seçilir; çok oyunculuda oyuncu adları, oyun modu ve **1–4 el** sayısı belirlenir.
 
-- **Çöz: iki kişilik hızlı bas–cevapla.** Herkes aynı soruyu görür. Birinci oyuncu `Boşluk`, ikinci oyuncu sayısal tuş takımındaki `Enter` ile zil çalar; ilk basan 3 saniyelik geri sayımda cevap hakkını alır. Doğru cevapta soru puanını kazanır; yanlış, pas veya süre sonunda kelimenin tam puanı kadar puan kaybeder ve soru diğer oyuncuya açılır.
+- **Çöz: iki kişilik hızlı bas–cevapla.** Herkes aynı soruyu görür. Birinci oyuncu `Boşluk`, ikinci oyuncu sayısal tuş takımındaki `Enter` ile zil çalar; ilk basan 3 saniyelik geri sayımda cevap hakkını alır. Bu sürede dikte başladıysa oyun, sesli tahmin tamamlanana veya manuel giriş yapılana kadar yanlış saymadan bekler. Doğru cevapta soru puanını kazanır; yanlış, pas veya süre sonunda kelimenin tam puanı kadar puan kaybeder ve soru diğer oyuncuya açılır.
+- Oyun sırasında oyuncu adları ve puanları sağdaki canlı sıralama panelinde gösterilir; puan üstünlüğü değiştiğinde oyuncu kartları animasyonla yeniden sıralanır.
 - **Türet: eşit sıralı tur.** 100 saniyelik serbest süre çok oyunculuda kullanılmaz. Her elde tüm oyuncular döngüyle kişi başı **10 tur** oynar. Her tur 5 saniyedir; el sayısı seçilirse, ilk harf setindeki tüm turlar tamamlandıktan sonra yeni bir harf seti açılır.
 - Türet turunda doğru, yanlış veya süresinde sessizlik doğrudan sonraki oyuncuya geçirir. Aynı kelime bir elde yalnızca bir oyuncu tarafından puanlanır; geçerli kelime puanı hemen o oyuncunun hanesine eklenir.
 - Her elin sonunda ve oyun sonunda oyuncu bazlı puan tablosu, tur/oyuncu ilerlemesi ve kazanan gösterilir.
