@@ -25,6 +25,7 @@ const SOLVED_WORD_PAUSE = 650;
 // Tanıma oturumu bittiğinde oluşan sessiz aralığı mümkün olduğunca kısa tutar.
 // Bazı tarayıcılar uzun sessizlikte Web Speech oturumunu kendileri kapatır.
 const VOICE_RESTART_DELAY = 120;
+const VOICE_PROCESSING_TIMEOUT = 2000;
 const TURKISH_WORD_PATTERN = /^[A-ZÇĞİÖŞÜ]+$/u;
 const VOLUME_BOOST = 5.5;
 const DERIVATION_VOWELS = ["A", "E", "I", "İ", "O", "Ö", "U", "Ü"];
@@ -106,6 +107,7 @@ let voiceListening = false;
 let voiceQuestionToken = 0;
 let voiceModeEnabled = loadVoiceModePreference();
 let voiceRestartTimer = null;
+let voiceProcessingTimer = null;
 let voiceListeningContext = null;
 let announcementEnabled = loadAnnouncementPreference();
 let announcementToken = 0;
@@ -413,6 +415,35 @@ function startMultiplayerFromSetup() {
     turnsPerDerivationRound: names.length * MULTIPLAYER_DERIVATION_TURNS_PER_PLAYER
   };
   if (!isUnscramble) startDerivationGame();
+  else startUnscrambleGame();
+}
+
+function resetMultiplayerForReplay() {
+  if (!multiplayer) return;
+  const players = multiplayer.players.map((player) => ({
+    name: player.name,
+    score: 0,
+    buzzButton: player.buzzButton
+  }));
+  multiplayer = {
+    players,
+    rounds: multiplayer.rounds,
+    activePlayerIndex: 0,
+    lockedPlayerIndexes: new Set(),
+    buzzedPlayerIndex: null,
+    turnNumber: 0,
+    currentDerivationRound: 1,
+    turnsPerDerivationRound: players.length * MULTIPLAYER_DERIVATION_TURNS_PER_PLAYER
+  };
+}
+
+function replayCurrentGame() {
+  if (elements.endPanel.hidden || !gameMode) return;
+  const replayMode = gameMode;
+  userHasInteracted = true;
+  ensureAudioContext();
+  if (gameSession === "multi") resetMultiplayerForReplay();
+  if (replayMode === "derive") startDerivationGame();
   else startUnscrambleGame();
 }
 
@@ -1395,7 +1426,13 @@ function finishGame() {
     elements.resultMeterFill.style.width = `${rate}%`;
   });
   playSound("finish");
-  announce(gameSession === "multi" ? `${multiplayer.players.slice().sort((first, second) => second.score - first.score)[0].name} kazandı.` : "Oyun tamamlandı.");
+  const resultAnnouncement = gameSession === "multi"
+    ? `${multiplayer.players.slice().sort((first, second) => second.score - first.score)[0].name} kazandı.`
+    : "Oyun tamamlandı.";
+  const replayAnnouncement = voiceModeEnabled && speechRecognition
+    ? " Aynı ayarlarla yeniden oynamak için tekrar de."
+    : "";
+  announce(`${resultAnnouncement}${replayAnnouncement}`);
   updateVoiceButton();
   if (voiceModeEnabled && speechRecognition) {
     setVoiceStatus(voiceCommandHint());
@@ -1780,7 +1817,12 @@ function levelFromSpokenCommand(value) {
   return matches.find(([, phrases]) => phrases.some((phrase) => command.includes(phrase)))?.[0] ?? null;
 }
 
+function isSpokenReplayCommand(value) {
+  return normalizeSpokenCommand(value).startsWith("TEKRAR");
+}
+
 function voiceCommandHint() {
+  if (!elements.endPanel.hidden) return "Aynı ayarlarla yeniden oynamak için “tekrar” diyebilirsin";
   if (menuState === "difficulty") return "“Birinci seviye” ile “beşinci seviye” arasında seçim yapabilirsin";
   if (menuState === "multiplayer") return "Oyuncuları hazırlayıp oyunu başlatabilirsin";
   return "“Çöz” veya “türet” diyebilirsin";
@@ -1838,7 +1880,30 @@ function setVoiceStatus(message) {
   statusElement.textContent = message;
 }
 
+function clearVoiceProcessingTimeout() {
+  if (voiceProcessingTimer !== null) window.clearTimeout(voiceProcessingTimer);
+  voiceProcessingTimer = null;
+}
+
+function startVoiceProcessingTimeout() {
+  clearVoiceProcessingTimeout();
+  const tokenAtSpeechStart = questionToken;
+  voiceProcessingTimer = window.setTimeout(() => {
+    voiceProcessingTimer = null;
+    const isCurrentSinglePlayerSolve = gameSession === "single"
+      && gameMode === "unscramble"
+      && voiceListeningContext === "game"
+      && tokenAtSpeechStart === questionToken
+      && !roundLocked;
+    if (!isCurrentSinglePlayerSolve) return;
+    stopVoiceRecognition();
+    setVoiceStatus("Ses çözümlenemedi, tekrar dinliyorum…");
+    scheduleVoiceRecognition(VOICE_RESTART_DELAY);
+  }, VOICE_PROCESSING_TIMEOUT);
+}
+
 function stopVoiceRecognition() {
+  clearVoiceProcessingTimeout();
   if (voiceRestartTimer !== null) window.clearTimeout(voiceRestartTimer);
   voiceRestartTimer = null;
   if (speechRecognition && voiceListening) {
@@ -1941,6 +2006,9 @@ function setupSpeechRecognition() {
   speechRecognition.onspeechstart = () => {
     if (voiceListeningContext === "game" && !roundLocked) {
       setVoiceStatus("Seni duydum, çözümlüyorum…");
+      if (gameSession === "single" && gameMode === "unscramble") {
+        startVoiceProcessingTimeout();
+      }
       if (gameSession === "multi" && gameMode === "unscramble" && multiplayer?.buzzedPlayerIndex !== null) {
         multiplayerVoiceDetected = true;
       }
@@ -1951,6 +2019,10 @@ function setupSpeechRecognition() {
     if (voiceListeningContext === "command") {
       const result = event.results[event.resultIndex];
       const transcripts = Array.from({ length: result.length }, (_, index) => result[index].transcript);
+      if (!elements.endPanel.hidden && transcripts.some(isSpokenReplayCommand)) {
+        replayCurrentGame();
+        return;
+      }
       const selectedLevelFromVoice = transcripts.map(levelFromSpokenCommand).find(Boolean);
       if (menuState === "difficulty" && selectedLevelFromVoice) {
         selectedLevel = selectedLevelFromVoice;
@@ -2012,6 +2084,7 @@ function setupSpeechRecognition() {
   };
 
   speechRecognition.onerror = (event) => {
+    clearVoiceProcessingTimeout();
     voiceListening = false;
     updateVoiceButton();
     if (event.error === "aborted") return;
@@ -2030,12 +2103,14 @@ function setupSpeechRecognition() {
   };
 
   speechRecognition.onnomatch = () => {
+    clearVoiceProcessingTimeout();
     if (voiceListeningContext === "game" && !roundLocked) {
       setVoiceStatus("Ses algılandı ama kelime anlaşılamadı; dinlemeye devam ediyorum");
     }
   };
 
   speechRecognition.onend = () => {
+    clearVoiceProcessingTimeout();
     voiceListening = false;
     updateVoiceButton();
     // Bilerek başlatılmış daha erken bir yeniden dinleme varsa (ör. yeni soru

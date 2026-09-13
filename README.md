@@ -72,7 +72,7 @@ Ardından tarayıcıdan `http://localhost:8000` adresini açın.
 2. **“Çöz”** veya **“Türet”** diyerek oyun modunu seçin.
 3. Oyun sırasında kelimeyi söyleyin. Kesinleşen tahmin otomatik olarak denenir ve mikrofon sıradaki tahmin için yeniden dinlemeye geçer.
 
-Çöz modunu seçtikten sonra **“birinci seviye”** ile **“beşinci seviye”** arasında sesle seçim yapabilirsiniz. Oyun sırasında **“pas geç”** demek o soruyu puansız atlar.
+Çöz modunu seçtikten sonra **“birinci seviye”** ile **“beşinci seviye”** arasında sesle seçim yapabilirsiniz. Oyun sırasında **“pas geç”** demek o soruyu puansız atlar. Oyun sonu ekranında **“tekrar”** dendiğinde oyuncular, mod, zorluk ve el sayısı korunarak yeni oyun doğrudan başlar.
 
 Web Speech API desteği tarayıcıya göre değişir. Klavye ile oyun her zaman kullanılabilir; sesli tanıma bazı tarayıcılarda internet bağlantısı gerektirebilir. Anonslar yalnızca cihazda Türkçe bir konuşma sesi bulunduğunda çalışır; böylece varsayılan İngilizce sesin Türkçe metni yanlış telaffuz etmesi engellenir.
 
