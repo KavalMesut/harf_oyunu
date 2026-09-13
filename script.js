@@ -1,16 +1,20 @@
 "use strict";
 
-const GAME_LENGTHS = [5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10];
-const REQUIRED_LENGTHS = [5, 6, 7, 8, 9, 10];
+const GAME_LENGTHS = [4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 10];
+const REQUIRED_LENGTHS = [4, 5, 6, 7, 8, 9, 10];
 const LEVELS = [
-  { id: 1, label: "Çocuk", size: 500, lengths: [5, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8] },
-  { id: 2, label: "Başlangıç", size: 1000, lengths: [5, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8] },
-  { id: 3, label: "Orta", size: 2000, lengths: [5, 5, 5, 6, 6, 6, 7, 7, 8, 8, 9, 9] },
+  { id: 1, label: "Çocuk", size: 500, lengths: [4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 8, 8] },
+  { id: 2, label: "Başlangıç", size: 1000, lengths: [4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 8, 8] },
+  { id: 3, label: "Orta", size: 2000, lengths: [4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9] },
   { id: 4, label: "İleri", size: 5000, lengths: GAME_LENGTHS },
   { id: 5, label: "Usta", size: 10000, lengths: GAME_LENGTHS }
 ];
-const MULTIPLAYER_BUZZ_KEYS = ["1", "2", "3", "4", "5", "6"];
-const MULTIPLAYER_ANSWER_SECONDS = 5;
+const MULTIPLAYER_MAX_PLAYERS = 6;
+const MULTIPLAYER_BUZZ_BUTTONS = [
+  { code: "Space", label: "Boşluk" },
+  { code: "NumpadEnter", label: "Sayısal Enter" }
+];
+const MULTIPLAYER_ANSWER_SECONDS = 3;
 const MULTIPLAYER_DERIVATION_SECONDS = 5;
 const MULTIPLAYER_DERIVATION_TURNS_PER_PLAYER = 10;
 const HINT_SECONDS = 5;
@@ -66,6 +70,8 @@ let gameSession = "single";
 let menuState = "home";
 let multiplayer = null;
 let answerDeadlineTimer = null;
+let answerCountdownTimer = null;
+let multiplayerAnswerSecondsLeft = 0;
 let revealedLetterCount = 0;
 let currentQuestionTimer = null;
 let countdownTimer = null;
@@ -117,6 +123,7 @@ const elements = {
   levelGrid: document.querySelector("#levelGrid"),
   backToModesButton: document.querySelector("#backToModesButton"),
   multiplayerPanel: document.querySelector("#multiplayerPanel"),
+  multiplayerDescription: document.querySelector("#multiplayerDescription"),
   playerInputs: document.querySelector("#playerInputs"),
   addPlayerButton: document.querySelector("#addPlayerButton"),
   multiplayerModeSelect: document.querySelector("#multiplayerModeSelect"),
@@ -161,6 +168,8 @@ const elements = {
   multiplayerStatus: document.querySelector("#multiplayerStatus"),
   multiplayerTurnLabel: document.querySelector("#multiplayerTurnLabel"),
   multiplayerRoundLabel: document.querySelector("#multiplayerRoundLabel"),
+  multiplayerAnswerCountdown: document.querySelector("#multiplayerAnswerCountdown"),
+  multiplayerAnswerSeconds: document.querySelector("#multiplayerAnswerSeconds"),
   playerScoreboard: document.querySelector("#playerScoreboard"),
   deriveFoundSection: document.querySelector("#deriveFoundSection"),
   deriveFoundCount: document.querySelector("#deriveFoundCount"),
@@ -344,12 +353,20 @@ function hideDifficultyChooser() {
 }
 
 function updateMultiplayerLevelVisibility() {
-  elements.multiplayerLevelOption.hidden = elements.multiplayerModeSelect.value !== "unscramble";
+  const isUnscramble = elements.multiplayerModeSelect.value === "unscramble";
+  elements.multiplayerLevelOption.hidden = !isUnscramble;
+  elements.multiplayerDescription.innerHTML = isUnscramble
+    ? "Çöz iki kişilik zil yarışı: birinci oyuncu <kbd>Boşluk</kbd>, ikinci oyuncu sayısal tuş takımındaki <kbd>Enter</kbd> ile cevap hakkını alır."
+    : "Türet'te her oyuncu, her elde 10 kez beşer saniyelik sıra alır.";
+  [...elements.playerInputs.children].forEach((label, index) => {
+    label.hidden = isUnscramble && index >= MULTIPLAYER_BUZZ_BUTTONS.length;
+  });
+  elements.addPlayerButton.hidden = isUnscramble || elements.playerInputs.children.length >= MULTIPLAYER_MAX_PLAYERS;
 }
 
 function addPlayerInput(value) {
   const count = elements.playerInputs.children.length + 1;
-  if (count > MULTIPLAYER_BUZZ_KEYS.length) return;
+  if (count > MULTIPLAYER_MAX_PLAYERS) return;
   const label = document.createElement("label");
   label.append(`Oyuncu ${count} `);
   const input = document.createElement("input");
@@ -360,7 +377,7 @@ function addPlayerInput(value) {
   preparePlayerNameInput(input);
   label.appendChild(input);
   elements.playerInputs.appendChild(label);
-  elements.addPlayerButton.hidden = count >= MULTIPLAYER_BUZZ_KEYS.length;
+  elements.addPlayerButton.hidden = count >= MULTIPLAYER_MAX_PLAYERS;
 }
 
 function preparePlayerNameInput(input) {
@@ -372,13 +389,15 @@ function preparePlayerNameInput(input) {
 }
 
 function startMultiplayerFromSetup() {
+  const isUnscramble = elements.multiplayerModeSelect.value === "unscramble";
   const names = [...elements.playerInputs.querySelectorAll(".player-name-input")]
+    .filter((input) => !input.closest("label").hidden)
     .map((input, index) => input.value.trim().slice(0, 18) || `Oyuncu ${index + 1}`);
   if (names.length < 2) return;
   gameSession = "multi";
   selectedLevel = Number(elements.multiplayerLevelSelect.value);
   multiplayer = {
-    players: names.map((name, index) => ({ name, score: 0, key: MULTIPLAYER_BUZZ_KEYS[index] })),
+    players: names.map((name, index) => ({ name, score: 0, buzzButton: MULTIPLAYER_BUZZ_BUTTONS[index] })),
     rounds: Number(elements.multiplayerRoundsSelect.value),
     activePlayerIndex: 0,
     lockedPlayerIndexes: new Set(),
@@ -387,7 +406,7 @@ function startMultiplayerFromSetup() {
     currentDerivationRound: 1,
     turnsPerDerivationRound: names.length * MULTIPLAYER_DERIVATION_TURNS_PER_PLAYER
   };
-  if (elements.multiplayerModeSelect.value === "derive") startDerivationGame();
+  if (!isUnscramble) startDerivationGame();
   else startUnscrambleGame();
 }
 
@@ -457,7 +476,7 @@ function startUnscrambleGame() {
   playSound("start");
   announce(
     gameSession === "multi"
-      ? `${multiplayer.players.length} oyuncu hazır. Çöz başlıyor. Zil tuşları ekranda görünüyor.`
+      ? `${multiplayer.players.length} oyuncu hazır. Çöz başlıyor. Birinci oyuncu boşluk, ikinci oyuncu sayısal Enter ile zile basar.`
       : `${currentLevelConfig().label} seviyesi başladı.`
   );
   startQuestion();
@@ -657,7 +676,19 @@ function updateDerivationInterface() {
 
 function clearAnswerDeadline() {
   if (answerDeadlineTimer !== null) window.clearTimeout(answerDeadlineTimer);
+  if (answerCountdownTimer !== null) window.clearInterval(answerCountdownTimer);
   answerDeadlineTimer = null;
+  answerCountdownTimer = null;
+  multiplayerAnswerSecondsLeft = 0;
+  elements.multiplayerAnswerCountdown.hidden = true;
+}
+
+function renderMultiplayerAnswerCountdown() {
+  elements.multiplayerAnswerCountdown.hidden = false;
+  elements.multiplayerAnswerSeconds.textContent = String(multiplayerAnswerSecondsLeft);
+  elements.multiplayerAnswerCountdown.classList.remove("is-ticking");
+  void elements.multiplayerAnswerCountdown.offsetWidth;
+  elements.multiplayerAnswerCountdown.classList.add("is-ticking");
 }
 
 function configureMultiplayerStatus() {
@@ -673,7 +704,9 @@ function renderMultiplayerStatus(message) {
   const hasActiveTurn = gameMode === "derive" || multiplayer.buzzedPlayerIndex !== null;
   elements.multiplayerTurnLabel.textContent = message || (gameMode === "derive"
     ? `Sıra: ${multiplayer.players[active].name}`
-    : multiplayer.buzzedPlayerIndex === null ? "Zile bas ve cevap hakkını al" : `${multiplayer.players[active].name} cevaplıyor`);
+    : multiplayer.buzzedPlayerIndex === null
+      ? `Zil: ${multiplayer.players[0].name} Boşluk · ${multiplayer.players[1].name} Sayısal Enter`
+      : `${multiplayer.players[active].name} cevaplıyor`);
   elements.multiplayerTurnLabel.classList.toggle("is-turn-active", hasActiveTurn);
   elements.multiplayerRoundLabel.textContent = gameMode === "derive"
     ? `El ${multiplayer.currentDerivationRound} / ${multiplayer.rounds} · Tur ${Math.floor(multiplayer.turnNumber / multiplayer.players.length) + 1} / ${MULTIPLAYER_DERIVATION_TURNS_PER_PLAYER}`
@@ -687,7 +720,7 @@ function renderMultiplayerStatus(message) {
     tag.textContent = `${player.name} · ${player.score}`;
     if (gameMode === "unscramble") {
       const key = document.createElement("kbd");
-      key.textContent = player.key;
+      key.textContent = player.buzzButton.label;
       tag.appendChild(key);
     }
     fragment.appendChild(tag);
@@ -703,7 +736,7 @@ function openMultiplayerBuzz(message = "Zile bas ve cevap hakkını al") {
   elements.checkButton.disabled = true;
   elements.voiceButton.disabled = true;
   elements.passButton.disabled = true;
-  renderMultiplayerStatus(message);
+  renderMultiplayerStatus(message === "Zile bas ve cevap hakkını al" ? undefined : message);
 }
 
 function claimMultiplayerBuzz(index) {
@@ -717,9 +750,15 @@ function claimMultiplayerBuzz(index) {
   elements.voiceButton.disabled = !speechRecognition;
   elements.answerInput.value = "";
   renderMultiplayerStatus(`${multiplayer.players[index].name} cevaplıyor · ${MULTIPLAYER_ANSWER_SECONDS} sn`);
-  playSound("turn");
+  playSound("buzz");
   announce(`${multiplayer.players[index].name}, cevap sende.`);
   focusAnswerInput();
+  multiplayerAnswerSecondsLeft = MULTIPLAYER_ANSWER_SECONDS;
+  renderMultiplayerAnswerCountdown();
+  answerCountdownTimer = window.setInterval(() => {
+    multiplayerAnswerSecondsLeft -= 1;
+    if (multiplayerAnswerSecondsLeft > 0) renderMultiplayerAnswerCountdown();
+  }, 1000);
   scheduleVoiceRecognition(120);
   answerDeadlineTimer = window.setTimeout(() => {
     if (multiplayer.buzzedPlayerIndex === index && !roundLocked) {
@@ -732,9 +771,12 @@ function handleMultiplayerIncorrect(message) {
   const index = multiplayer.buzzedPlayerIndex;
   clearAnswerDeadline();
   stopVoiceRecognition();
+  playSound("wrong");
   if (index !== null) {
-    multiplayer.players[index].score = Math.max(0, multiplayer.players[index].score - 10);
+    const penalty = characterCount(selectedQuestions[currentQuestionIndex]) * 10;
+    multiplayer.players[index].score -= penalty;
     multiplayer.lockedPlayerIndexes.add(index);
+    message = `${message} -${penalty} puan.`;
   }
   const remaining = multiplayer.players.some((_, playerIndex) => !multiplayer.lockedPlayerIndexes.has(playerIndex));
   if (!remaining) {
@@ -1461,6 +1503,11 @@ function playSound(kind) {
   } else if (kind === "turn") {
     tone({ frequency: 520, endFrequency: 560, duration: 0.07, gain: 0.018 });
     tone({ frequency: 660, endFrequency: 700, duration: 0.09, gain: 0.014, delay: 0.09 });
+  } else if (kind === "buzz") {
+    // Kısa, tok bir basış ve ardından parlak bir oyun-programı zili.
+    // Bilinen bir programın sesini örneklemek yerine sentezlenmiş özgün tonlar.
+    tone({ frequency: 160, endFrequency: 96, duration: 0.075, type: "triangle", gain: 0.04 });
+    tone({ frequency: 760, endFrequency: 590, duration: 0.12, type: "sine", gain: 0.026, delay: 0.035 });
   } else if (kind === "finish") {
     [392, 523, 659].forEach((frequency, index) => {
       tone({ frequency, endFrequency: frequency * 1.04, duration: 0.24, gain: 0.038, delay: index * 0.12 });
@@ -2013,7 +2060,7 @@ document.addEventListener(
   (event) => {
     userHasInteracted = true;
     if (gameSession === "multi" && gameMode === "unscramble" && !roundLocked) {
-      const playerIndex = multiplayer?.players.findIndex((player) => player.key === event.key);
+      const playerIndex = multiplayer?.players.findIndex((player) => player.buzzButton?.code === event.code);
       if (playerIndex >= 0) {
         event.preventDefault();
         claimMultiplayerBuzz(playerIndex);

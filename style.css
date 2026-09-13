@@ -1158,6 +1158,49 @@ button {
 
 .multiplayer-status__heading span:last-child { color: var(--red); }
 
+.multiplayer-answer-countdown {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  width: fit-content;
+  min-width: 92px;
+  margin: 14px auto 4px;
+  color: var(--cream);
+}
+
+.multiplayer-answer-countdown span {
+  display: grid;
+  width: 68px;
+  height: 68px;
+  place-items: center;
+  border: 3px solid var(--gold);
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 7px 18px color-mix(in srgb, var(--red) 35%, transparent);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 2.25rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.multiplayer-answer-countdown small {
+  color: var(--red);
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+
+.multiplayer-answer-countdown.is-ticking span {
+  animation: multiplayerCountdownTick 820ms cubic-bezier(0.2, 0.8, 0.25, 1);
+}
+
+@keyframes multiplayerCountdownTick {
+  0% { transform: scale(1.22); filter: brightness(1.16); }
+  65% { transform: scale(0.9); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
 .player-scoreboard,
 .multiplayer-results > div {
   display: flex;

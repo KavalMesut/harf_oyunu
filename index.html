@@ -69,7 +69,7 @@
           </div>
           <div class="mode-grid" aria-label="Oyun modu seçimi">
             <button class="mode-card mode-card--primary" id="startUnscrambleButton" type="button">
-              <span class="mode-card__eyebrow">12 soru · seviyene göre puan</span>
+              <span class="mode-card__eyebrow">12 soru · 2 kolay başlangıç</span>
               <strong>Çöz</strong>
               <span>Karışık verilen kelimeyi ipuçlarından önce çöz.</span>
             </button>
@@ -85,17 +85,17 @@
             <h2 id="difficultyTitle">Bir seviye seç</h2>
             <p>Sesli seçimde “birinci seviye” ile “beşinci seviye” diyebilirsin.</p>
             <div class="level-grid" id="levelGrid">
-              <button class="level-card" type="button" data-level="1"><strong>1</strong><span>Çocuk</span><small>500 kelime · 5–8 harf</small></button>
-              <button class="level-card" type="button" data-level="2"><strong>2</strong><span>Başlangıç</span><small>1.000 kelime · 5–8 harf</small></button>
+              <button class="level-card" type="button" data-level="1"><strong>1</strong><span>Çocuk</span><small>500 kelime · 4–8 harf</small></button>
+              <button class="level-card" type="button" data-level="2"><strong>2</strong><span>Başlangıç</span><small>1.000 kelime · 4–8 harf</small></button>
               <button class="level-card" type="button" data-level="3"><strong>3</strong><span>Orta</span><small>2.000 kelime · 5–9 harf</small></button>
-              <button class="level-card" type="button" data-level="4"><strong>4</strong><span>İleri</span><small>5.000 kelime · 5–10 harf</small></button>
-              <button class="level-card" type="button" data-level="5"><strong>5</strong><span>Usta</span><small>10.000 kelime · 5–10 harf</small></button>
+              <button class="level-card" type="button" data-level="4"><strong>4</strong><span>İleri</span><small>5.000 kelime · 4–10 harf</small></button>
+              <button class="level-card" type="button" data-level="5"><strong>5</strong><span>Usta</span><small>10.000 kelime · 4–10 harf</small></button>
             </div>
           </section>
           <section class="multiplayer-panel" id="multiplayerPanel" hidden aria-labelledby="multiplayerTitle">
             <span class="eyebrow">Aynı cihazda birlikte oyna</span>
             <h2 id="multiplayerTitle">Oyuncuları hazırla</h2>
-            <p>Çöz modunda herkes kendi zil tuşuyla yarışır; Türet'te her oyuncu, her elde 10 kez beşer saniyelik sıra alır.</p>
+            <p id="multiplayerDescription">Çöz iki kişilik zil yarışı: birinci oyuncu <kbd>Boşluk</kbd>, ikinci oyuncu sayısal tuş takımındaki <kbd>Enter</kbd> ile cevap hakkını alır.</p>
             <div class="player-inputs" id="playerInputs">
               <label>Oyuncu 1 <input class="player-name-input" type="text" value="Oyuncu 1" maxlength="18" /></label>
               <label>Oyuncu 2 <input class="player-name-input" type="text" value="Oyuncu 2" maxlength="18" /></label>
@@ -244,6 +244,10 @@
               <span id="multiplayerTurnLabel">Oyuncular hazır</span>
               <span id="multiplayerRoundLabel"></span>
             </div>
+            <div class="multiplayer-answer-countdown" id="multiplayerAnswerCountdown" hidden aria-live="assertive">
+              <span id="multiplayerAnswerSeconds">3</span>
+              <small>CEVAP SÜRESİ</small>
+            </div>
             <div class="player-scoreboard" id="playerScoreboard"></div>
           </section>
 
@@ -307,6 +311,6 @@
       </section>
     </main>
 
-    <script src="script.js?v=multiplayer-levels-12" defer></script>
+    <script src="script.js?v=multiplayer-levels-16" defer></script>
   </body>
 </html>

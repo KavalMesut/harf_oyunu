@@ -39,7 +39,7 @@ def normalize(value: str) -> str:
 
 
 def usable(value: str, base: set[str]) -> bool:
-    return value in base and value not in BLOCKED and bool(WORD.fullmatch(value)) and 5 <= len(value) <= 10
+    return value in base and value not in BLOCKED and bool(WORD.fullmatch(value)) and 4 <= len(value) <= 10
 
 
 def ordered_frequency_words() -> list[str]:

@@ -21,7 +21,7 @@ Karışık harfleri çözün veya on harften yeni kelimeler türetin. Türkçe o
 
 | Mod | Nasıl oynanır? | Hedef |
 | --- | --- | --- |
-| **Çöz** | Karışık verilen harfleri doğru sıraya getirin. | 12 soruyu, ipuçları açılmadan çözerek 900 puana yaklaşın. |
+| **Çöz** | Karışık verilen harfleri doğru sıraya getirin. | 12 sorunun ilk ikisi 4 harflidir; kalanları seviyeye göre çözün. |
 | **Türet** | Dört sesli ve altı sessiz harften oluşan 10 harfi kullanın. | 100 saniye içinde mümkün olduğunca çok 4+ harfli Türkçe kelime bulun. |
 
 **Türet** modunda en uzun kelimeler çift puan getirir. Tur sonunda tüm olası kelimeler; bulunanlar yeşil, kaçırılanlar kırmızı olacak şekilde gösterilir.
@@ -31,7 +31,7 @@ Karışık harfleri çözün veya on harften yeni kelimeler türetin. Türkçe o
 - Tek ekranda iki farklı Türkçe kelime oyunu
 - Türkçe karakterler için doğru normalizasyon: `ç`, `ğ`, `ı`, `İ`, `ö`, `ş`, `ü`
 - Sürekli sesli oyun: mod seçimi ve kelime tahminleri eller serbest yapılabilir
-- **Çöz** için beş zorluk seviyesi: Çocuk (500 kelime, 5–8 harf) ile Usta (10.000 kelime, 5–10 harf) arasında seçim
+- **Çöz** için beş zorluk seviyesi: Her oyun iki 4 harfli soruyla başlar; Çocuk (500 kelime, 4–8 harf) ile Usta (10.000 kelime, 4–10 harf) arasında seçim
 - Sesli veya görünür **Pas geç** seçeneği; oyun sırasında “pas geç” komutu kullanılabilir
 - İsteğe bağlı Türkçe oyun anonsları; mikrofon, anons sırasında kendi sesini dinlemez
 - Aynı cihazda 2–6 kişiyle çok oyunculu: Çöz'de zil tuşuyla yarış, Türet'te eşit sıralı turlar
@@ -141,8 +141,7 @@ Türet modu seviye sözlüklerini kullanmaz: `assets/dictionaries/turkce_kelime_
 
 Bu mod aynı cihazda oynayan **2–6 oyuncu** için çalışır. Başlangıç ekranında önce **Tek oyunculu** veya **Çok oyunculu** seçilir; çok oyunculuda oyuncu adları, oyun modu ve **1–4 el** sayısı belirlenir.
 
-- **Çöz: hızlı bas–cevapla.** Herkes aynı soruyu görür. İlk basan oyuncu cevap hakkını alır, adı/kartı yeşile döner ve 5 saniye içinde cevabını söyler. Doğru cevapta soru puanını alır; yanlış cevapta önceden belirlenen puanı kaybeder ve soru kalan oyunculara tekrar açılır.
-- Fiziksel klavye zilleri Oyuncu 1–6 için sırasıyla `1`–`6` tuşlarıdır. Aynı anda basmalarda ilk tarayıcı olayı kazanır.
+- **Çöz: iki kişilik hızlı bas–cevapla.** Herkes aynı soruyu görür. Birinci oyuncu `Boşluk`, ikinci oyuncu sayısal tuş takımındaki `Enter` ile zil çalar; ilk basan 3 saniyelik geri sayımda cevap hakkını alır. Doğru cevapta soru puanını kazanır; yanlış, pas veya süre sonunda kelimenin tam puanı kadar puan kaybeder ve soru diğer oyuncuya açılır.
 - **Türet: eşit sıralı tur.** 100 saniyelik serbest süre çok oyunculuda kullanılmaz. Her elde tüm oyuncular döngüyle kişi başı **10 tur** oynar. Her tur 5 saniyedir; el sayısı seçilirse, ilk harf setindeki tüm turlar tamamlandıktan sonra yeni bir harf seti açılır.
 - Türet turunda doğru, yanlış veya süresinde sessizlik doğrudan sonraki oyuncuya geçirir. Aynı kelime bir elde yalnızca bir oyuncu tarafından puanlanır; geçerli kelime puanı hemen o oyuncunun hanesine eklenir.
 - Her elin sonunda ve oyun sonunda oyuncu bazlı puan tablosu, tur/oyuncu ilerlemesi ve kazanan gösterilir.
