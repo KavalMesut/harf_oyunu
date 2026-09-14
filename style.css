@@ -210,14 +210,6 @@ button {
   font-weight: 800;
 }
 
-.announcement-button .sound-button__icon {
-  font-size: 1.15rem;
-}
-
-.announcement-button[aria-pressed="false"] .sound-button__icon {
-  opacity: 0.48;
-}
-
 .glass {
   border: 1px solid color-mix(in srgb, var(--cream) 15%, transparent);
   background: color-mix(in srgb, var(--cream) 8%, transparent);
@@ -1840,8 +1832,7 @@ kbd {
   }
 
   .brand small,
-  #soundLabel,
-  #announcementLabel {
+  #soundLabel {
     display: none;
   }
 
@@ -1871,8 +1862,6 @@ kbd {
     padding: 0;
     justify-content: center;
   }
-
-  .announcement-button { display: none; }
 
   .score-card,
   .play-card {

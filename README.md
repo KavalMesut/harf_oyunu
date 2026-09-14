@@ -33,7 +33,6 @@ Karışık harfleri çözün veya on harften yeni kelimeler türetin. Türkçe o
 - Sürekli sesli oyun: mod seçimi ve kelime tahminleri eller serbest yapılabilir
 - **Çöz** için beş zorluk seviyesi: Her oyun iki 4 harfli soruyla başlar; Çocuk (500 kelime, 4–8 harf) ile Usta (10.000 kelime, 4–10 harf) arasında seçim
 - Sesli veya görünür **Pas geç** seçeneği; oyun sırasında “pas geç” komutu kullanılabilir
-- İsteğe bağlı Türkçe oyun anonsları; mikrofon, anons sırasında kendi sesini dinlemez
 - Aynı cihazda 2–6 kişiyle çok oyunculu: Çöz'de zil tuşuyla yarış, Türet'te eşit sıralı turlar
 - **Çöz** modunda beş saniyede bir açılan sıralı harf ipucu animasyonu
 - **Türet** modunda çözülebilir kelimeler sunan dengeli 10 harflik raflar
@@ -74,7 +73,9 @@ Ardından tarayıcıdan `http://localhost:8000` adresini açın.
 
 Çöz modunu seçtikten sonra **“birinci seviye”** ile **“beşinci seviye”** arasında sesle seçim yapabilirsiniz. Oyun sırasında **“pas geç”** demek o soruyu puansız atlar. Oyun sonu ekranında **“tekrar”** dendiğinde oyuncular, mod, zorluk ve el sayısı korunarak yeni oyun doğrudan başlar.
 
-Web Speech API desteği tarayıcıya göre değişir. Klavye ile oyun her zaman kullanılabilir; sesli tanıma bazı tarayıcılarda internet bağlantısı gerektirebilir. Anonslar yalnızca cihazda Türkçe bir konuşma sesi bulunduğunda çalışır; böylece varsayılan İngilizce sesin Türkçe metni yanlış telaffuz etmesi engellenir.
+Web Speech API desteği tarayıcıya göre değişir. Klavye ile oyun her zaman kullanılabilir; sesli tanıma bazı tarayıcılarda internet bağlantısı gerektirebilir.
+
+> **Gelecek geliştirme notu:** Oyuncu sırası, oyun başlangıcı ve sonuçlar için Türkçe sesli anons sistemi daha güvenilir ve doğal bir Türkçe ses çözümüyle yeniden değerlendirilecek.
 
 ## Puanlama
 
@@ -150,7 +151,7 @@ Bu mod aynı cihazda oynayan **2–6 oyuncu** için çalışır. Başlangıç ek
 - Mikrofonun desteklenmediği veya tanımanın başarısız olduğu cihazlar için görünür bir “Pas geç” düğmesi ve yazılı tahmin yolu korunmalıdır. Bu, özellikle Android tablet ve iOS tarayıcıları için gereklidir.
 - Gelecek genişletme: büyük ekran/televizyon ana ekran olur; oyuncular telefonlarından bir oda koduyla bağlanır. Telefon, hem kendi zil düğmesi hem de mikrofon olur. Bu sürüm için cihazlar arasında ilk basanı güvenilir belirleyecek WebSocket/Firebase gibi gerçek zamanlı bir sunucu gerekir; yalnızca tarayıcı tarafıyla adil eşzamanlı yarış sağlanamaz.
 
-Çöz'de zili alan oyuncunun cevap için 5 saniyesi vardır; yanlış, pas veya süre sonunda 10 puan kaybeder ve o soruda tekrar zile basamaz. Türet'te her oyuncunun 5 saniyesi vardır; doğru, yanlış, pas veya süre sonunda sıra ilerler. Aynı Türet kelimesi bir elde yalnızca bir kez puanlanır. Aktif oyuncu ve oyun sonu kazananı anons edilir.
+Çöz'de zili alan oyuncunun cevap için 5 saniyesi vardır; yanlış, pas veya süre sonunda 10 puan kaybeder ve o soruda tekrar zile basamaz. Türet'te her oyuncunun 5 saniyesi vardır; doğru, yanlış, pas veya süre sonunda sıra ilerler. Aynı Türet kelimesi bir elde yalnızca bir kez puanlanır.
 
 ---
 

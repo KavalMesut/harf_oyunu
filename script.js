@@ -109,10 +109,6 @@ let voiceModeEnabled = loadVoiceModePreference();
 let voiceRestartTimer = null;
 let voiceProcessingTimer = null;
 let voiceListeningContext = null;
-let announcementEnabled = loadAnnouncementPreference();
-let announcementToken = 0;
-let announcementVoice = null;
-let announcementVoiceAvailability = null;
 
 const elements = {
   loadingPanel: document.querySelector("#loadingPanel"),
@@ -202,8 +198,6 @@ const elements = {
   resultMeterFill: document.querySelector("#resultMeterFill"),
   soundButton: document.querySelector("#soundButton"),
   soundLabel: document.querySelector("#soundLabel"),
-  announcementButton: document.querySelector("#announcementButton"),
-  announcementLabel: document.querySelector("#announcementLabel"),
   volumeSlider: document.querySelector("#volumeSlider"),
   volumeOutput: document.querySelector("#volumeOutput")
 };
@@ -349,7 +343,6 @@ function showDifficultyChooser() {
   elements.multiplayerPanel.hidden = true;
   elements.startUnscrambleButton.closest(".mode-grid").hidden = true;
   setVoiceStatus(voiceCommandHint());
-  announce("Çöz modu. Birinci seviyeden beşinci seviyeye kadar bir seviye söyleyebilirsin.");
   requestAnimationFrame(() => elements.levelGrid.querySelector("button").focus({ preventScroll: true }));
 }
 
@@ -511,11 +504,6 @@ function startUnscrambleGame() {
   elements.scoreMaximum.textContent = `/ ${maxScoreForQuestions(selectedQuestions)}`;
   configureMultiplayerStatus();
   playSound("start");
-  announce(
-    gameSession === "multi"
-      ? `${multiplayer.players.length} oyuncu hazır. Çöz başlıyor. Birinci oyuncu boşluk, ikinci oyuncu sayısal Enter ile zile basar.`
-      : `${currentLevelConfig().label} seviyesi başladı.`
-  );
   startQuestion();
 }
 
@@ -642,7 +630,6 @@ function startDerivationGame() {
   configureMultiplayerStatus();
   updateDerivationInterface();
   playSound("start");
-  announce(gameSession === "multi" ? "Türet başlıyor. Her oyuncunun on turu var." : "Türet başladı.");
   if (gameSession === "multi") {
     startMultiplayerDerivationTurn();
     return;
@@ -842,7 +829,6 @@ function claimMultiplayerBuzz(index) {
   elements.answerInput.value = "";
   renderMultiplayerStatus(`${multiplayer.players[index].name} cevaplıyor · ${MULTIPLAYER_ANSWER_SECONDS} sn`);
   playSound("buzz");
-  announce(`${multiplayer.players[index].name}, cevap sende.`);
   focusAnswerInput();
   multiplayerAnswerSecondsLeft = MULTIPLAYER_ANSWER_SECONDS;
   multiplayerVoiceDetected = false;
@@ -905,7 +891,6 @@ function startMultiplayerDerivationTurn() {
   updateDerivationInterface();
   renderMultiplayerStatus();
   playSound("turn");
-  announce(`Sıra ${multiplayer.players[multiplayer.activePlayerIndex].name}de. Beş saniye.`);
   scheduleVoiceRecognition(120);
   derivationTimer = window.setInterval(() => {
     derivationTimeLeft -= 1;
@@ -930,7 +915,6 @@ function startNextMultiplayerDerivationRound() {
   elements.feedbackMessage.className = "feedback feedback--revealed";
   configureDerivationInterface();
   updateDerivationInterface();
-  announce(`El ${multiplayer.currentDerivationRound} başladı. Yeni harfler hazır.`);
   window.setTimeout(startMultiplayerDerivationTurn, 650);
 }
 
@@ -1308,7 +1292,6 @@ function handleCorrectAnswer(word) {
   elements.feedbackMessage.textContent = `${gameSession === "multi" ? `${multiplayer.players[multiplayer.activePlayerIndex].name}: ` : ""}Doğru! +${earned} puan · ${word}`;
   elements.feedbackMessage.className = "feedback feedback--correct";
   playSound("correct");
-  announce(gameSession === "multi" ? `${multiplayer.players[multiplayer.activePlayerIndex].name} doğru bildi.` : "Doğru.");
 
   const tokenAtAnswer = questionToken;
   animateSolvedWord(word, tokenAtAnswer);
@@ -1379,7 +1362,6 @@ function passCurrentRound() {
   elements.passButton.disabled = true;
   elements.feedbackMessage.textContent = `Pas geçildi: ${word}. Sıradaki kelimeye geçiliyor…`;
   elements.feedbackMessage.className = "feedback feedback--revealed";
-  announce(`Pas geçildi. Kelime ${word}.`);
   const tokenAtPass = questionToken;
   window.setTimeout(() => {
     if (tokenAtPass !== questionToken) return;
@@ -1426,13 +1408,6 @@ function finishGame() {
     elements.resultMeterFill.style.width = `${rate}%`;
   });
   playSound("finish");
-  const resultAnnouncement = gameSession === "multi"
-    ? `${multiplayer.players.slice().sort((first, second) => second.score - first.score)[0].name} kazandı.`
-    : "Oyun tamamlandı.";
-  const replayAnnouncement = voiceModeEnabled && speechRecognition
-    ? " Aynı ayarlarla yeniden oynamak için tekrar de."
-    : "";
-  announce(`${resultAnnouncement}${replayAnnouncement}`);
   updateVoiceButton();
   if (voiceModeEnabled && speechRecognition) {
     setVoiceStatus(voiceCommandHint());
@@ -1659,115 +1634,6 @@ function changeVolume(event) {
   updateSoundControls();
 }
 
-function loadAnnouncementPreference() {
-  try {
-    return window.localStorage.getItem("kelime-announcements") !== "disabled";
-  } catch (error) {
-    return true;
-  }
-}
-
-function updateAnnouncementControls() {
-  const voiceMissing = announcementVoiceAvailability === false;
-  elements.announcementButton.disabled = voiceMissing;
-  elements.announcementButton.setAttribute("aria-pressed", String(announcementEnabled));
-  elements.announcementButton.title = voiceMissing
-    ? "Bu cihazda Türkçe bir konuşma sesi bulunamadı."
-    : "Anonsları aç veya kapat";
-  elements.announcementLabel.textContent = voiceMissing
-    ? "Türkçe ses yok"
-    : announcementEnabled
-      ? "Anons açık"
-      : "Anons kapalı";
-  elements.announcementButton.querySelector(".sound-button__icon").textContent = voiceMissing
-    ? "!"
-    : announcementEnabled
-      ? "◌"
-      : "×";
-}
-
-function toggleAnnouncements() {
-  announcementEnabled = !announcementEnabled;
-  try {
-    window.localStorage.setItem("kelime-announcements", announcementEnabled ? "enabled" : "disabled");
-  } catch (error) {
-    console.debug("Anons tercihi kaydedilemedi.", error);
-  }
-  if (!announcementEnabled && "speechSynthesis" in window) window.speechSynthesis.cancel();
-  updateAnnouncementControls();
-}
-
-function findTurkishAnnouncementVoice() {
-  if (!("speechSynthesis" in window)) return null;
-
-  const voices = window.speechSynthesis.getVoices();
-  return (
-    voices.find((voice) => /^tr(?:[-_]|$)/iu.test(voice.lang)) ||
-    voices.find((voice) => /t[uü]rk/i.test(`${voice.name} ${voice.lang}`)) ||
-    null
-  );
-}
-
-function refreshAnnouncementVoice() {
-  if (!("speechSynthesis" in window)) {
-    announcementVoiceAvailability = false;
-    updateAnnouncementControls();
-    return;
-  }
-
-  const voices = window.speechSynthesis.getVoices();
-  if (!voices.length) {
-    // Bazı tarayıcılar ses listesini ilk anda boş, biraz sonra dolu döndürür.
-    announcementVoiceAvailability = null;
-    updateAnnouncementControls();
-    return;
-  }
-
-  announcementVoice = findTurkishAnnouncementVoice();
-  announcementVoiceAvailability = Boolean(announcementVoice);
-  updateAnnouncementControls();
-}
-
-function setupAnnouncementVoice() {
-  if (!("speechSynthesis" in window)) {
-    refreshAnnouncementVoice();
-    return;
-  }
-
-  refreshAnnouncementVoice();
-  window.speechSynthesis.addEventListener("voiceschanged", refreshAnnouncementVoice);
-  window.setTimeout(refreshAnnouncementVoice, 250);
-}
-
-function announce(message) {
-  if (!announcementEnabled || !("speechSynthesis" in window) || !message) return;
-  announcementVoice = findTurkishAnnouncementVoice();
-  if (!announcementVoice) {
-    announcementVoiceAvailability = false;
-    updateAnnouncementControls();
-    if (voiceModeEnabled) scheduleVoiceRecognition(160);
-    return;
-  }
-
-  announcementVoiceAvailability = true;
-  const token = ++announcementToken;
-  stopVoiceRecognition();
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(message);
-  // `lang` tek başına yeterli değil: tarayıcı aksi halde varsayılan İngilizce
-  // sesi seçebiliyor. Türkçe sesi açıkça bağlamadan anons yapmıyoruz.
-  utterance.voice = announcementVoice;
-  utterance.lang = announcementVoice.lang || "tr-TR";
-  utterance.rate = 0.95;
-  utterance.onend = () => {
-    if (token === announcementToken && voiceModeEnabled) scheduleVoiceRecognition(160);
-  };
-  utterance.onerror = () => {
-    if (token === announcementToken && voiceModeEnabled) scheduleVoiceRecognition(160);
-  };
-  window.speechSynthesis.speak(utterance);
-}
-
 function normalizeSpokenWord(value) {
   return normalizeTurkish(value).replace(/[^A-ZÇĞİÖŞÜ]/gu, "");
 }
@@ -1933,7 +1799,6 @@ function scheduleVoiceRecognition(delay = VOICE_RESTART_DELAY) {
   const canListenForStartCommand = !elements.startPanel.hidden || !elements.endPanel.hidden;
   const canListenInGame = !elements.gameLayout.hidden && !roundLocked;
   if (!voiceModeEnabled || !speechRecognition || (!canListenForStartCommand && !canListenInGame)) return;
-  if (window.speechSynthesis?.speaking) return;
 
   voiceRestartTimer = window.setTimeout(() => {
     voiceRestartTimer = null;
@@ -2191,7 +2056,6 @@ elements.playAgainButton.addEventListener("click", () => {
   showGameModeMenu();
 });
 elements.soundButton.addEventListener("click", toggleSound);
-elements.announcementButton.addEventListener("click", toggleAnnouncements);
 elements.voiceButton.addEventListener("click", toggleVoiceMode);
 elements.startVoiceButton.addEventListener("click", toggleVoiceMode);
 elements.endVoiceButton.addEventListener("click", toggleVoiceMode);
@@ -2227,7 +2091,5 @@ document.addEventListener(
 );
 
 updateSoundControls();
-updateAnnouncementControls();
-setupAnnouncementVoice();
 setupSpeechRecognition();
 loadWords();
