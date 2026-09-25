@@ -930,21 +930,31 @@ function advanceMultiplayerDerivationTurn(message) {
 
 function shuffleWord(word) {
   const original = [...word];
-  const shuffled = [...original];
+  const minimumChanged = Math.min(original.length, original.length === 4 ? 3 : 4);
+  let bestShuffle = original;
+  let mostChanged = 0;
 
-  for (let i = shuffled.length - 1; i > 0; i -= 1) {
-    const j = randomIndex(i + 1);
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
+  // Geçerli ilk Fisher–Yates sonucunu almak, uygun dizilimler arasında
+  // rastgeleliği korur. Tekrarlı harflerde hedef olanaksızsa en iyisini kullan.
+  for (let attempt = 0; attempt < 64; attempt += 1) {
+    const shuffled = [...original];
+    for (let i = shuffled.length - 1; i > 0; i -= 1) {
+      const j = randomIndex(i + 1);
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
 
-  if (shuffled.join("") === original.join("")) {
-    const differentIndex = shuffled.findIndex((character) => character !== shuffled[0]);
-    if (differentIndex > 0) {
-      [shuffled[0], shuffled[differentIndex]] = [shuffled[differentIndex], shuffled[0]];
+    const changed = shuffled.reduce(
+      (count, character, index) => count + Number(character !== original[index]),
+      0
+    );
+    if (changed >= minimumChanged) return shuffled;
+    if (changed > mostChanged) {
+      mostChanged = changed;
+      bestShuffle = shuffled;
     }
   }
 
-  return shuffled;
+  return bestShuffle;
 }
 
 function startQuestion() {
